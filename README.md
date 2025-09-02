@@ -11,15 +11,14 @@ Principais características:
 - Estrutura de pastas em inglês para facilitar integração com outros repositórios.
 
 Estrutura:
-- `cmd/` : exemplos e binários (ex: `cmd/example`).
-- `pkg/log` : utilitário de logging (zerolog + trace_id).
-- `pkg/kubebuilder` : dicas e helpers para kubebuilder.
-- `pkg/ocm` : dicas e helpers para Open Cluster Management.
+- `log/` : utilitário de logging (zerolog + trace_id).
+- `kubebuilder/` : dicas e helpers para kubebuilder.
+- `ocm/` : dicas e helpers para Open Cluster Management.
 
 Como começar:
 1. Ajuste o módulo Go se necessário: `module github.com/totvs/<your-repo>`
 2. Baixe dependências: `go mod tidy` (requer acesso à internet).
-3. Rodar exemplo de logging: `go run ./cmd/example`
+3. Rodar exemplo de logging: `go run ./log/cmd/example`
 
 Logging:
 - O logger escreve em JSON por padrão.
@@ -28,7 +27,7 @@ Logging:
 
 Exemplos de uso e trechos de código estão nos READMEs dos respectivos pacotes:
 
-- `pkg/log/README.md` — exemplos de uso do logger (inclui middleware HTTP e injeção de `trace_id`).
+- `log/README.md` — exemplos de uso do logger (inclui middleware HTTP e injeção de `trace_id`).
 - `pkg/kubebuilder/README.md` — exemplos e comandos para scaffolding de operators.
 - `pkg/ocm/README.md` — exemplos e recomendações para addons OCM.
 

@@ -8,7 +8,7 @@ import (
     "os"
 
     "github.com/rs/zerolog"
-    logger "github.com/totvs/go-sdk/pkg/log"
+    logger "github.com/totvs/go-sdk/log"
 )
 
 func main() {

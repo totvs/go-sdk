@@ -89,6 +89,21 @@ git push origin log/v0.1.0
 - Consumidor: `go get github.com/totvs/go-sdk/log@v0.1.0`.
 - Para major >= 2, inclua o sufixo de versão no `module` (ex.: `module github.com/totvs/go-sdk/log/v2`).
 
+Tag por diretório (resumo)
+
+- **O que é:** usar tags Git prefixadas com o caminho do submódulo, por exemplo `log/v0.1.0`, para versionar um módulo que vive em um subdiretório do monorepo.
+- **Quando usar:** quando um submódulo precisa de ciclo de versão/release independente (ex.: `log` consumido por muitos repositórios).
+- **Como criar:** tag anotada e push da tag, por exemplo:
+
+```bash
+git tag -a log/v0.1.0 -m "log v0.1.0"
+git push origin log/v0.1.0
+```
+
+- **Consumidor:** `go get github.com/totvs/go-sdk/log@v0.1.0`.
+- **Nota sobre major >= 2:** se o `module` incluir `/v2`, mantenha o padrão (ex.: `module github.com/totvs/go-sdk/log/v2` e tag `log/v2.0.0`).
+- **Boas práticas:** use tags anotadas, garanta que o commit da tag contenha o `go.mod` do submódulo, e automatize o processo via CI quando possível.
+
 CI e testes
 - Um script simples para rodar `go test` em todos os módulos:
 

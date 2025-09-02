@@ -2,38 +2,110 @@ go-sdk
 
 Projeto base (SDK) em Go que serve como blueprint para outros projetos da TOTVS.
 
-Visão geral:
+Visão geral
 - Contém utilitários reusáveis para logging, scaffolding de operators com kubebuilder e integração com Open Cluster Management (OCM).
-- Este repositório não implementa operators nem addons; fornece helpers e convenções.
+- Este repositório fornece helpers, guias e exemplos — não implementa operators nem addons prontos.
 
-Principais características:
+Principais características
 - Logging: `zerolog` em formato JSON com suporte a `trace_id` para rastreabilidade.
-- Estrutura de pastas em inglês para facilitar integração com outros repositórios.
+- Estrutura modular: cada utilitário pode ser um submódulo (ex.: `log/`) ou pacote interno conforme necessidade.
 
-Estrutura:
-- `log/` : utilitário de logging (zerolog + trace_id).
-- `kubebuilder/` : dicas e helpers para kubebuilder.
-- `ocm/` : dicas e helpers para Open Cluster Management.
+Estrutura do repositório
+- `log/` — módulo independente com utilitários de logging (pacote `logger`).
+- `kubebuilder/` — utilitários, dicas e exemplos para scaffolding com `kubebuilder`.
+- `ocm/` — utilitários e guias para trabalhar com Open Cluster Management (OCM).
+- `pkg/` — (histórico) pastas auxiliares; a estrutura recomendada é cada módulo em sua própria pasta.
 
-Como começar:
-1. Ajuste o módulo Go se necessário: `module github.com/totvs/<your-repo>`
-2. Baixe dependências: `go mod tidy` (requer acesso à internet).
-3. Rodar exemplo de logging: `go run ./log/cmd/example`
+Como começar (desenvolvimento local)
+1. Recomendo usar `go.work` para desenvolvimento local entre os submódulos (Go 1.18+):
 
-Logging:
-- O logger escreve em JSON por padrão.
-- Para incluir `trace_id` use `pkg/log.ContextWithTrace(ctx, traceID)` e depois `pkg/log.WithTraceFromContext(ctx, logger)`.
+```bash
+go work init ./log ./kubebuilder ./ocm
+```
 
+Ou crie um `go.work` manualmente na raiz:
 
-Exemplos de uso e trechos de código estão nos READMEs dos respectivos pacotes:
+```text
+go 1.20
 
-- `log/README.md` — exemplos de uso do logger (inclui middleware HTTP e injeção de `trace_id`).
-- `pkg/kubebuilder/README.md` — exemplos e comandos para scaffolding de operators.
-- `pkg/ocm/README.md` — exemplos e recomendações para addons OCM.
+use (
+  ./log
+  ./kubebuilder
+  ./ocm
+)
+```
 
-Próximos passos:
-- Adicionar templates, scripts e integrações conforme necessário.
-- Adotar este repositório como base para novos projetos Go.
+2. Instale dependências e rode os exemplos de cada módulo:
 
-Licença e contribuições:
-- Siga as políticas internas da empresa para licença e contribution guidelines.
+```bash
+cd log && go mod tidy && go run ./cmd/example
+cd ../kubebuilder && go mod tidy && go run ./cmd/example
+cd ../ocm && go mod tidy && go run ./cmd/example
+```
+
+3. Se preferir desenvolver consumindo o módulo localmente a partir de outro repositório, use `replace` no `go.mod` do consumidor:
+
+```mod
+replace github.com/totvs/go-sdk/log => /caminho/para/repositorio/log
+```
+
+Uso do logger (exemplo)
+
+Importe o módulo e use as funções do pacote `logger`:
+
+```go
+import (
+    "context"
+    "os"
+
+    "github.com/rs/zerolog"
+    logger "github.com/totvs/go-sdk/log"
+)
+
+func main() {
+    l := logger.New(os.Stdout, zerolog.InfoLevel)
+    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
+    l = logger.WithTraceFromContext(ctx, l)
+    l.Info().Msg("aplicação iniciada")
+}
+```
+
+Middleware HTTP (exemplo rápido)
+
+```go
+mux := http.NewServeMux()
+// ... registre handlers ...
+http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
+```
+
+Versionamento e publicação
+- Tags por submódulo: crie tags com prefixo do diretório, por exemplo:
+
+```bash
+git tag -a log/v0.1.0 -m "log v0.1.0"
+git push origin log/v0.1.0
+```
+
+- Consumidor: `go get github.com/totvs/go-sdk/log@v0.1.0`.
+- Para major >= 2, inclua o sufixo de versão no `module` (ex.: `module github.com/totvs/go-sdk/log/v2`).
+
+CI e testes
+- Um script simples para rodar `go test` em todos os módulos:
+
+```bash
+find . -name 'go.mod' -print0 | xargs -0 -n1 dirname | while read -r d; do
+  (cd "$d" && go test ./...)
+done
+```
+
+Boas práticas
+- Coloque código público reutilizável em módulos/pacotes dentro de suas pastas (`log/`, etc.).
+- Coloque código que não deve ser importado externamente em `internal/` dentro do respectivo módulo.
+- Use `go.work` para desenvolvimento local e `replace` para casos pontuais.
+- Documente cada módulo com `README.md` e exemplos; adicione `Example` tests para gerar documentação automática.
+
+Contribuindo
+- Siga as políticas internas da empresa para licenciamento e contribution guidelines.
+
+Mais informações
+- Verifique os READMEs em cada submódulo (`log/README.md`, `kubebuilder/README.md`, `ocm/README.md`) para exemplos e orientações específicas.

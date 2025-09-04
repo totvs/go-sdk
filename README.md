@@ -3,48 +3,41 @@
 Projeto base (SDK) em Go que serve como blueprint para outros projetos da TOTVS.
 
 ## Visão geral
-- Contém utilitários reusáveis para logging, scaffolding de operators com kubebuilder e integração com Open Cluster Management (OCM).
+- Contém utilitários reusáveis para logging (pacote `log`).
 - Este repositório fornece helpers, guias e exemplos — não implementa operators nem addons prontos.
 
 ### Principais características
 - Logging: `zerolog` em formato JSON com suporte a `trace_id` para rastreabilidade.
-- Estrutura modular: cada utilitário pode ser um submódulo (ex.: `log/`) ou pacote interno conforme necessidade.
+- Estrutura modular: os utilitários ficam em pastas como `log/`.
 
 ### Estrutura do repositório
 
-1. Módulos incluídos
+1. Módulos/pacotes incluídos
 
-- `log/` — módulo independente com utilitários de logging (pacote `logger`).
-- `kubebuilder/` — utilitários, dicas e exemplos para scaffolding com `kubebuilder`.
-- `ocm/` — utilitários e guias para trabalhar com Open Cluster Management (OCM).
+- `log/` — utilitários de logging (pacote `logger`).
 
 ```text
-go 1.20
+module github.com/totvs/go-sdk
 
-use (
-  ./log
-  ./kubebuilder
-  ./ocm
-)
+go 1.25
 ```
 
-2. Instale dependências e rode os exemplos de cada módulo:
+2. Instale dependências:
 
 ```bash
-cd log && go mod tidy
-cd ../kubebuilder && go mod tidy
-cd ../ocm && go mod tidy
+# o `go.mod` agora está na raiz do repositório
+go mod tidy
 ```
 
-3. Se preferir desenvolver consumindo o módulo localmente a partir de outro repositório, use `replace` no `go.mod` do consumidor:
+3. Se preferir desenvolver consumindo o repositório localmente a partir de outro repositório, use `replace` no `go.mod` do consumidor:
 
 ```mod
-replace github.com/totvs/go-sdk/log => /caminho/para/repositorio/log
+replace github.com/totvs/go-sdk => /caminho/para/repositorio
 ```
 
 Uso do logger (exemplo)
 
-Importe o módulo e use as funções do pacote `logger`:
+Importe o pacote e use as funções do pacote `logger`:
 
 ```go
 import (
@@ -72,48 +65,25 @@ http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
 ```
 
 ## Versionamento e publicação
-- Tags por submódulo: crie tags com prefixo do diretório, por exemplo:
-
-```bash
-git tag -a log/v0.1.0 -m "log v0.1.0"
-git push origin log/v0.1.0
-```
-
-- Consumidor: `go get github.com/totvs/go-sdk/log@v0.1.0`.
-- Para major >= 2, inclua o sufixo de versão no `module` (ex.: `module github.com/totvs/go-sdk/log/v2`).
-
-### Tag por diretório
-
-- **O que é:** usar tags Git prefixadas com o caminho do submódulo, por exemplo `log/v0.1.0`, para versionar um módulo que vive em um subdiretório do monorepo.
-- **Quando usar:** quando um submódulo precisa de ciclo de versão/release independente (ex.: `log` consumido por muitos repositórios).
-- **Como criar:** tag anotada e push da tag, por exemplo:
-
-```bash
-git tag -a log/v0.1.0 -m "log v0.1.0"
-git push origin log/v0.1.0
-```
-
-- **Consumidor:** `go get github.com/totvs/go-sdk/log@v0.1.0`.
-- **Nota sobre major >= 2:** se o `module` incluir `/v2`, mantenha o padrão (ex.: `module github.com/totvs/go-sdk/log/v2` e tag `log/v2.0.0`).
-- **Boas práticas:** use tags anotadas, garanta que o commit da tag contenha o `go.mod` do submódulo, e automatize o processo via CI quando possível.
+- O repositório usa um único módulo Go na raiz: `module github.com/totvs/go-sdk`.
+- Para consumir um pacote deste repositório use a import path, por exemplo: `github.com/totvs/go-sdk/log`.
+- Consumidor: `go get github.com/totvs/go-sdk@v0.1.0`.
 
 ## CI e testes
-- Um script simples para rodar `go test` em todos os módulos:
+- Um script simples para rodar `go test` em todo o repositório:
 
 ```bash
-find . -name 'go.mod' -print0 | xargs -0 -n1 dirname | while read -r d; do
-  (cd "$d" && go test ./...)
-done
+go test ./...
 ```
 
 ## Boas práticas
-- Coloque código público reutilizável em módulos/pacotes dentro de suas pastas (`log/`, etc.).
-- Coloque código que não deve ser importado externamente em `internal/` dentro do respectivo módulo.
+- Coloque código público reutilizável em pacotes dentro de suas pastas (`log/`, etc.).
+- Coloque código que não deve ser importado externamente em `internal/` dentro do respectivo pacote.
 - Use `go.work` para desenvolvimento local e `replace` para casos pontuais.
-- Documente cada módulo com `README.md` e exemplos; adicione `Example` tests para gerar documentação automática.
+- Documente cada pacote com `README.md` e exemplos; adicione `Example` tests para gerar documentação automática.
 
 ## Contribuindo
 - Siga as políticas internas da empresa para licenciamento e contribution guidelines.
 
 ## Mais informações
-- Verifique os READMEs em cada submódulo (`log/README.md`, `kubebuilder/README.md`, `ocm/README.md`) para exemplos e orientações específicas.
+- Verifique o README em `log/README.md` para exemplos e orientações específicas.

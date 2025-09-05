@@ -19,15 +19,77 @@ import (
     "context"
     "os"
 
-    "github.com/rs/zerolog"
     logger "github.com/totvs/go-sdk/log"
 )
 
 func main() {
-    l := logger.New(os.Stdout, zerolog.InfoLevel)
+    l := logger.New(os.Stdout, logger.InfoLevel)
     ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
     l = logger.WithTraceFromContext(ctx, l)
     l.Info().Msg("aplicação iniciada")
+}
+```
+
+Novos helpers e middleware
+
+- `WithField(key, value)` — adiciona um único campo ao logger de forma conveniente.
+- `WithFields(map[string]interface{})` — método equivalente à função de pacote para adicionar múltiplos campos.
+- `InfoMsg`, `DebugMsg`, `WarnMsg`, `ErrorMsg` — helpers que emitem uma mensagem simples (`l.InfoMsg("...")`).
+
+Middleware HTTP
+
+O `HTTPMiddlewareWithLogger(base Logger)` agora gera automaticamente um `trace id` seguro quando nenhum header
+`X-Request-Id` ou `X-Correlation-Id` é fornecido pelo cliente. O id gerado é:
+
+- Inserido no contexto da requisição (`ContextWithTrace`).
+- Adicionado ao log como campo `trace_id`.
+- Inserido no header de resposta `X-Request-Id` (se o header ainda estiver ausente), facilitando correlação.
+
+Exemplo rápido:
+
+```go
+mux := http.NewServeMux()
+// ... registre handlers ...
+http.ListenAndServe(":8080", logger.HTTPMiddleware(mux)) // usa logger padrão
+// ou com logger customizado:
+// http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myLogger)(mux))
+```
+
+Exemplo completo e saída esperada
+
+```go
+package main
+
+import (
+    "net/http"
+    "os"
+
+    logger "github.com/totvs/go-sdk/log"
+)
+
+func main() {
+    l := logger.New(os.Stdout, logger.InfoLevel)
+
+    mux := http.NewServeMux()
+    mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("pong"))
+    })
+
+    // start server with middleware (will generate trace id if missing)
+    http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(l)(mux))
+}
+```
+
+Uma chamada GET para `/ping` sem `X-Request-Id` pode gerar uma linha de log JSON parecida com:
+
+```json
+{
+  "level": "info",
+  "time": "2025-09-05T12:00:00Z",
+  "trace_id": "9f3b2c1a4d5e6f708192a3b4c5d6e7f8",
+  "method": "GET",
+  "path": "/ping",
+  "message": "http request received"
 }
 ```
 

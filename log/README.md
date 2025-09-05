@@ -31,6 +31,22 @@ func main() {
 }
 ```
 
+Injecting logger into context:
+
+```go
+// create a logger and store it in the context so library code can use it
+lg := logger.New(os.Stdout, zerolog.DebugLevel)
+ctx := logger.ContextWithLogger(context.Background(), lg)
+
+// later, library code can get the logger or fall back to default
+lg2 := logger.FromContext(ctx)
+lg2.Info().Msg("using injected logger")
+
+// adding multiple fields conveniently
+lg3 := logger.WithFields(lg2, map[string]interface{}{"service": "orders", "version": 3})
+lg3.Info().Msg("request processed")
+```
+
 <!-- exemplo executável removido -->
 
 Dicas:

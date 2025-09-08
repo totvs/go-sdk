@@ -10,13 +10,11 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/rs/zerolog"
 )
 
 func TestWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf, zerolog.DebugLevel)
+	l := New(buf, DebugLevel)
 
 	fields := map[string]interface{}{
 		"str": "s",
@@ -57,7 +55,7 @@ func TestWithFields(t *testing.T) {
 
 func TestContextLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf, zerolog.DebugLevel)
+	l := New(buf, DebugLevel)
 
 	ctx := ContextWithLogger(context.Background(), l)
 	if _, ok := LoggerFromContext(ctx); !ok {

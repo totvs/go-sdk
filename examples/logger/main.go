@@ -5,19 +5,18 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/rs/zerolog"
 	logger "github.com/totvs/go-sdk/log"
 )
 
 func main() {
 	// basic logger
-	l := logger.New(os.Stdout, zerolog.InfoLevel)
+	l := logger.New(os.Stdout, logger.InfoLevel)
 	ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
 	l = logger.WithTraceFromContext(ctx, l)
 	l.Info().Msg("application started")
 
 	// inject logger into context for library code
-	lg := logger.New(os.Stdout, zerolog.DebugLevel)
+	lg := logger.New(os.Stdout, logger.DebugLevel)
 	ctx2 := logger.ContextWithLogger(context.Background(), lg)
 	lg2 := logger.FromContext(ctx2)
 	lg2.Info().Msg("using injected logger")

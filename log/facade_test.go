@@ -1,11 +1,12 @@
 package logger
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"strings"
-	"testing"
+    "bytes"
+    "context"
+    "encoding/json"
+    "errors"
+    "strings"
+    "testing"
 )
 
 func TestFacadeBasicWrites(t *testing.T) {
@@ -59,4 +60,24 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 	if !strings.Contains(buf.String(), "from-ctx") {
 		t.Fatalf("expected from-ctx in output, got: %s", buf.String())
 	}
+}
+
+func TestErrorWithError(t *testing.T) {
+    buf := &bytes.Buffer{}
+    f := NewFacade(buf, DebugLevel)
+    err := errors.New("boom")
+    f.Error("failed action", err)
+
+    s := buf.String()
+    if !strings.Contains(s, "boom") {
+        t.Fatalf("expected error text in output, got: %s", s)
+    }
+
+    var m map[string]interface{}
+    if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+        t.Fatalf("invalid json: %v, raw: %s", err, s)
+    }
+    if m["error"] != "boom" {
+        t.Fatalf("expected error field 'boom', got: %v", m["error"])
+    }
 }

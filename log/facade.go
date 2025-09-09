@@ -10,14 +10,16 @@ import (
 // Implementações podem usar zerolog (via o adaptador abaixo) ou qualquer
 // outra biblioteca no futuro.
 type LoggerFacade interface {
-	WithField(k string, v interface{}) LoggerFacade
-	WithFields(fields map[string]interface{}) LoggerFacade
-	WithTraceFromContext(ctx context.Context) LoggerFacade
+    WithField(k string, v interface{}) LoggerFacade
+    WithFields(fields map[string]interface{}) LoggerFacade
+    WithTraceFromContext(ctx context.Context) LoggerFacade
 
-	Info(msg string)
-	Debug(msg string)
-	Warn(msg string)
-	Error(msg string)
+    Info(msg string)
+    Debug(msg string)
+    Warn(msg string)
+    // Error accepts an optional error parameter. Pass an error to include it
+    // in the log payload (as the `error` field).
+    Error(msg string, err ...error)
 
 	Infof(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
@@ -44,7 +46,13 @@ func (z zerologAdapter) WithTraceFromContext(ctx context.Context) LoggerFacade {
 func (z zerologAdapter) Info(msg string)  { z.l.InfoMsg(msg) }
 func (z zerologAdapter) Debug(msg string) { z.l.DebugMsg(msg) }
 func (z zerologAdapter) Warn(msg string)  { z.l.WarnMsg(msg) }
-func (z zerologAdapter) Error(msg string) { z.l.ErrorMsg(msg) }
+func (z zerologAdapter) Error(msg string, err ...error) {
+    if len(err) > 0 && err[0] != nil {
+        z.l.l.Error().Err(err[0]).Msg(msg)
+        return
+    }
+    z.l.ErrorMsg(msg)
+}
 
 func (z zerologAdapter) Infof(format string, args ...interface{}) {
 	z.Info(fmt.Sprintf(format, args...))
@@ -80,7 +88,7 @@ func GetGlobal() LoggerFacade { return global }
 func Info(msg string)  { global.Info(msg) }
 func Debug(msg string) { global.Debug(msg) }
 func Warn(msg string)  { global.Warn(msg) }
-func Error(msg string) { global.Error(msg) }
+func Error(msg string, err ...error) { global.Error(msg, err...) }
 
 func Infof(format string, args ...interface{})  { global.Infof(format, args...) }
 func Debugf(format string, args ...interface{}) { global.Debugf(format, args...) }

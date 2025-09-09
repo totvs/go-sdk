@@ -23,6 +23,7 @@ Development guidelines
     - Constructors: `NewFacade(w, level) -> LoggerFacade`, `NewDefaultFacade()`.
   - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContextFacade`.
     - Field helpers: `WithField`, `WithFields` (available on `LoggerFacade`).
+    - Error logging: `LoggerFacade.Error(msg string, err ...error)` accepts an optional `error` to include as the `error` field in the log payload.
     - Globals/shortcuts: `SetGlobal`, `GetGlobal` and package-level shortcuts `logger.Info/Debug/Warn/Error` and `logger.Infof/...`.
 
 - Adding an adapter for another logging library

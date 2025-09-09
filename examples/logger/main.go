@@ -41,5 +41,8 @@ func main() {
 	})
 
 	// listen on :8080 (ctrl-c to stop) — pass the same app logger instance to the middleware
-	http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myAppInstanceLogger1)(mux))
+	err := http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myAppInstanceLogger1)(mux))
+	if err != nil {
+		myAppInstanceLogger1.Error("failed to start server", err)
+	}
 }

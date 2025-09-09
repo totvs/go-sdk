@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	mware "github.com/totvs/go-sdk/log/middleware"
 )
 
 func TestWithFields(t *testing.T) {
@@ -89,7 +91,7 @@ func TestHTTPMiddlewareLogsTrace(t *testing.T) {
 	req.Header.Set("X-Request-Id", "trace-1")
 	resp := httptest.NewRecorder()
 	// use the handler directly to ensure middleware executes in-process
-	handler := HTTPMiddleware(http.HandlerFunc(func(wr http.ResponseWriter, r *http.Request) {
+	handler := mware.HTTPMiddleware(http.HandlerFunc(func(wr http.ResponseWriter, r *http.Request) {
 		wr.Write([]byte("ok"))
 	}))
 	handler.ServeHTTP(resp, req)

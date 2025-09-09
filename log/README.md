@@ -31,8 +31,7 @@ import (
 func main() {
     // use the facade API (decoupled from the concrete implementation)
     f := logger.NewFacade(os.Stdout, logger.InfoLevel)
-    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-    f = f.WithTraceFromContext(ctx)
+    // For per-request trace ids prefer using the middleware which injects the trace into the logger.
     f.Info("aplicação iniciada")
 
     // definir logger global para usar atalhos do pacote
@@ -72,8 +71,8 @@ Use `HTTPMiddlewareWithOptions(base, opts)` to customize behavior. The convenien
 Example: disable request logging but still inject the logger
 
 ```go
-opts := logger.MiddlewareOptions{LogRequest: false, InjectLogger: true, AddTraceHeader: true}
-http.ListenAndServe(":8080", logger.HTTPMiddlewareWithOptions(myLogger, opts)(mux))
+opts := middleware.MiddlewareOptions{LogRequest: false, InjectLogger: true, AddTraceHeader: true}
+http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithOptions(myLogger, opts)(mux))
 ```
 
 Note: the middleware will mark the request context when it already logged the request. Handlers that also log
@@ -90,6 +89,7 @@ import (
     "errors"
 
     logger "github.com/totvs/go-sdk/log"
+    middleware "github.com/totvs/go-sdk/log/middleware"
 )
 
 func main() {
@@ -101,7 +101,7 @@ func main() {
     })
 
     // start server with middleware (will generate trace id if missing)
-    http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(l)(mux))
+    http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(l)(mux))
 }
 ```
 
@@ -146,7 +146,7 @@ Handler helper
 
 ```go
 func handler(w http.ResponseWriter, r *http.Request) {
-    lg, logged := logger.GetLoggerFromRequest(r)
+    lg, logged := middleware.GetLoggerFromRequest(r)
     if !logged {
         lg.Info("handler received request")
     }

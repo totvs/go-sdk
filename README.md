@@ -50,8 +50,8 @@ import (
 func main() {
     // use the facade API (decoupled from the concrete implementation)
     f := logger.NewFacade(os.Stdout, logger.InfoLevel)
-    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-    f = f.WithTraceFromContext(ctx)
+    // For per-request trace ids prefer using the HTTP middleware which
+    // will inject the trace id from the request into the logger context.
     f.Info("aplicação iniciada")
 
     // tornar este logger a instância global utilizada por atalhos do pacote
@@ -66,6 +66,8 @@ Middleware HTTP (exemplo rápido)
 mux := http.NewServeMux()
 // ... registre handlers ...
 http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
+// or using the middleware package explicitly:
+// http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
 ```
 
 ## Versionamento e publicação
@@ -103,9 +105,8 @@ func main() {
     // diretamente de zerolog e pode usar a mesma API independente da implementação.
     f := logger.NewFacade(os.Stdout, logger.InfoLevel)
 
-    // adiciona trace no contexto e aplica ao logger (facade)
-    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-    f = f.WithTraceFromContext(ctx)
+    // per-request trace ids are normally added by the HTTP middleware;
+    // create the facade and use it for logging in your application.
     f.Info("aplicação iniciada")
 
     // opcional: definir como logger global para usar atalhos como `logger.Info(...)`
@@ -135,11 +136,11 @@ mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 })
 
 // usa logger default
-http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
+http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
 
-// ou com logger customizado
+// or with a custom logger
 // myLogger := logger.NewFacade(os.Stdout, logger.DebugLevel)
-// http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myLogger)(mux))
+// http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(myLogger)(mux))
 ```
 
 Ao usar o middleware, se o cliente não enviar `X-Request-Id` ou `X-Correlation-Id`, o middleware gera um id seguro,

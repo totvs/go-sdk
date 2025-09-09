@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"sync/atomic"
 )
 
@@ -184,12 +183,4 @@ func FromContextFacade(ctx context.Context) LoggerFacade {
 // otherwise returns the global logger. The second return value indicates
 // whether the middleware already logged the request (so handlers can avoid
 // duplicating the same request-level message).
-func GetLoggerFromRequest(r *http.Request) (LoggerFacade, bool) {
-	if r == nil {
-		return GetGlobal(), false
-	}
-	if lf, ok := LoggerFromContext(r.Context()); ok {
-		return lf, LoggedFromContext(r.Context())
-	}
-	return GetGlobal(), false
-}
+// GetLoggerFromRequest has moved to the `log/middleware` package.

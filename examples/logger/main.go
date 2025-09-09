@@ -6,6 +6,7 @@ import (
 	"os"
 
 	logger "github.com/totvs/go-sdk/log"
+	middleware "github.com/totvs/go-sdk/log/middleware"
 )
 
 func main() {
@@ -30,10 +31,13 @@ func main() {
 	f3.Info("request processed1")
 	f3.Info("request processed2")
 
+	// usando a fachada (abstração)
+	myAppInstanceLogger4 := logger.NewFacade(os.Stdout, logger.InfoLevel)
+
 	// HTTP server with middleware
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		lf, logged := logger.GetLoggerFromRequest(r)
+		lf, logged := middleware.GetLoggerFromRequest(r)
 		if !logged {
 			// middleware didn't emit the request-level log; handler can do it
 			lf.Info("handler received request")
@@ -43,7 +47,7 @@ func main() {
 	})
 
 	// listen on :8080 (ctrl-c to stop) — pass the same app logger instance to the middleware
-	err := http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myAppInstanceLogger1)(mux))
+	err := http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(myAppInstanceLogger4)(mux))
 	if err != nil {
 		myAppInstanceLogger1.Error("failed to start server", err)
 	}

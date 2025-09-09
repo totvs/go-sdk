@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
-	"net/http"
 	"os"
 	"time"
 
@@ -182,67 +181,13 @@ func generateTraceID() string {
 	return string(dst)
 }
 
+// GenerateTraceID returns a new trace id. Exported for use by integration
+// helpers (e.g., HTTP middleware) that need to generate or fallback a trace id.
+func GenerateTraceID() string { return generateTraceID() }
+
 // Info/Debug/Warn/Error expose the underlying zerolog event so callers can use the familiar API
 // without importing zerolog themselves.
 // Note: we intentionally do not expose methods that return zerolog-specific
 // types. Callers should use the LoggerFacade abstraction instead.
 
-// HTTPMiddlewareWithLogger returns a middleware using the provided base logger.
-// MiddlewareOptions customizes the behavior of the HTTP middleware.
-type MiddlewareOptions struct {
-	// LogRequest controls whether the middleware emits a request-level log.
-	LogRequest bool
-	// InjectLogger controls whether the middleware stores the facade logger in the request context.
-	InjectLogger bool
-	// AddTraceHeader controls whether the middleware sets the X-Request-Id header on the response.
-	AddTraceHeader bool
-}
-
-// DefaultMiddlewareOptions are the defaults used by HTTPMiddlewareWithLogger.
-var DefaultMiddlewareOptions = MiddlewareOptions{LogRequest: true, InjectLogger: true, AddTraceHeader: true}
-
-// HTTPMiddlewareWithOptions returns a middleware using the provided base logger
-// and the supplied options. Use HTTPMiddlewareWithLogger(base) for defaults.
-func HTTPMiddlewareWithOptions(base LoggerFacade, opts MiddlewareOptions) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			trace := r.Header.Get(TraceIDHeader)
-			if trace == "" {
-				trace = r.Header.Get(TraceIDCorrelationHeader)
-			}
-			if trace == "" {
-				trace = generateTraceID()
-			}
-			ctx := ContextWithTrace(r.Context(), trace)
-
-			// prepare a facade that includes trace if requested
-			l := base.WithTraceFromContext(ctx)
-			l2 := l.WithFields(map[string]interface{}{"method": r.Method, "path": r.URL.Path, TraceIDField: trace})
-
-			if opts.LogRequest {
-				l2.Info("http request received")
-				ctx = ContextWithLogged(ctx)
-			}
-			if opts.InjectLogger {
-				ctx = ContextWithLogger(ctx, l2)
-			}
-			if opts.AddTraceHeader {
-				if w.Header().Get(TraceIDHeader) == "" {
-					w.Header().Set(TraceIDHeader, trace)
-				}
-			}
-
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-// HTTPMiddlewareWithLogger is a convenience wrapper that uses default options.
-func HTTPMiddlewareWithLogger(base LoggerFacade) func(http.Handler) http.Handler {
-	return HTTPMiddlewareWithOptions(base, DefaultMiddlewareOptions)
-}
-
-// HTTPMiddleware is a convenience wrapper that uses the default logger.
-func HTTPMiddleware(next http.Handler) http.Handler {
-	return HTTPMiddlewareWithLogger(NewDefaultFacade())(next)
-}
+// HTTP middleware functionality has been moved to the `log/middleware` package.

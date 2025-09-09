@@ -23,7 +23,10 @@ Development guidelines
     - Constructors: `NewFacade(w, level) -> LoggerFacade`, `NewDefaultFacade()`.
   - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContextFacade`.
     - Field helpers: `WithField`, `WithFields` (available on `LoggerFacade`).
-    - Error logging: `LoggerFacade.Error(msg string, err ...error)` accepts an optional `error` to include as the `error` field in the log payload.
+    - Error logging: `LoggerFacade.Error(msg string, err error)` accepts a (possibly nil) `error` to include as the `error` field in the log payload.
+      Additionally the facade provides:
+      - `Errf(format string, err error, args ...interface{})` — formatted message with error.
+      - `Errorw(msg string, err error, fields map[string]interface{})` — message + error + structured fields.
     - Globals/shortcuts: `SetGlobal`, `GetGlobal` and package-level shortcuts `logger.Info/Debug/Warn/Error` and `logger.Infof/...`.
 
 - Adding an adapter for another logging library
@@ -49,7 +52,11 @@ Development guidelines
 
 - Build / CI
   - Useful targets: `make build`, `make test`, `make cover`, `make ci`.
-  - The `ci` target runs `fmt`, `vet`, and `test`.
+- The `ci` target runs `fmt`, `vet`, and `test`.
+
+Concurrency note
+- The package-level global logger is stored using `sync/atomic.Value` so `SetGlobal`/`GetGlobal` are safe to call concurrently.
+  Prefer setting the global once at startup; runtime swaps are supported but should be used with care.
 
 Best practices
 - Fix the root cause rather than applying superficial workarounds.

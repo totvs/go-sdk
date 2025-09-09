@@ -111,6 +111,9 @@ func main() {
     // opcional: definir como logger global para usar atalhos como `logger.Info(...)`
     logger.SetGlobal(f)
     logger.Info("mensagem via logger global")
+
+    // note: error logging uses an explicit error parameter: `f.Error("failed to start", err)`
+    // there are also helpers for formatted+error and error+fields: `f.Errf(format, err, args...)` and `f.Errorw(msg, err, fields)`
 }
 ```
 

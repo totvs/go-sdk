@@ -81,3 +81,41 @@ func TestErrorWithError(t *testing.T) {
         t.Fatalf("expected error field 'boom', got: %v", m["error"])
     }
 }
+
+func TestErrorwWithFields(t *testing.T) {
+    buf := &bytes.Buffer{}
+    f := NewFacade(buf, DebugLevel)
+    err := errors.New("boom")
+    f.Errorw("failed action", err, map[string]interface{}{"service": "orders"})
+
+    s := buf.String()
+    if !strings.Contains(s, "boom") {
+        t.Fatalf("expected error text in output, got: %s", s)
+    }
+
+    var m map[string]interface{}
+    if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+        t.Fatalf("invalid json: %v, raw: %s", err, s)
+    }
+    if m["error"] != "boom" {
+        t.Fatalf("expected error field 'boom', got: %v", m["error"])
+    }
+    if m["service"] != "orders" {
+        t.Fatalf("expected service=orders, got: %v", m["service"])
+    }
+}
+
+func TestErrfWithError(t *testing.T) {
+    buf := &bytes.Buffer{}
+    f := NewFacade(buf, DebugLevel)
+    err := errors.New("boom")
+    f.Errf("failed %s", err, "start")
+
+    s := buf.String()
+    if !strings.Contains(s, "boom") {
+        t.Fatalf("expected error text in output, got: %s", s)
+    }
+    if !strings.Contains(s, "failed start") {
+        t.Fatalf("expected formatted message 'failed start', got: %s", s)
+    }
+}

@@ -1,9 +1,10 @@
 package logger
 
 import (
-	"context"
-	"fmt"
-	"io"
+    "context"
+    "fmt"
+    "io"
+    "sync/atomic"
 )
 
 // LoggerFacade é a abstração pública para logging usada pela aplicação.
@@ -17,14 +18,17 @@ type LoggerFacade interface {
     Info(msg string)
     Debug(msg string)
     Warn(msg string)
-    // Error accepts an optional error parameter. Pass an error to include it
-    // in the log payload (as the `error` field).
-    Error(msg string, err ...error)
+    // Error logs a message and accepts an optional error (pass nil if none).
+    Error(msg string, err error)
 
-	Infof(format string, args ...interface{})
-	Debugf(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
+    Infof(format string, args ...interface{})
+    Debugf(format string, args ...interface{})
+    Warnf(format string, args ...interface{})
+    Errorf(format string, args ...interface{})
+    // Errf logs a formatted message and an error.
+    Errf(format string, err error, args ...interface{})
+    // Errorw logs a message with an error and additional structured fields.
+    Errorw(msg string, err error, fields map[string]interface{})
 }
 
 // zerologAdapter adapta o Logger concreto (baseado em zerolog) para a
@@ -46,9 +50,9 @@ func (z zerologAdapter) WithTraceFromContext(ctx context.Context) LoggerFacade {
 func (z zerologAdapter) Info(msg string)  { z.l.InfoMsg(msg) }
 func (z zerologAdapter) Debug(msg string) { z.l.DebugMsg(msg) }
 func (z zerologAdapter) Warn(msg string)  { z.l.WarnMsg(msg) }
-func (z zerologAdapter) Error(msg string, err ...error) {
-    if len(err) > 0 && err[0] != nil {
-        z.l.l.Error().Err(err[0]).Msg(msg)
+func (z zerologAdapter) Error(msg string, err error) {
+    if err != nil {
+        z.l.l.Error().Err(err).Msg(msg)
         return
     }
     z.l.ErrorMsg(msg)
@@ -64,7 +68,26 @@ func (z zerologAdapter) Warnf(format string, args ...interface{}) {
 	z.Warn(fmt.Sprintf(format, args...))
 }
 func (z zerologAdapter) Errorf(format string, args ...interface{}) {
-	z.Error(fmt.Sprintf(format, args...))
+    z.Error(fmt.Sprintf(format, args...), nil)
+}
+
+func (z zerologAdapter) Errf(format string, err error, args ...interface{}) {
+    z.Errorw(fmt.Sprintf(format, args...), err, nil)
+}
+
+func (z zerologAdapter) Errorw(msg string, err error, fields map[string]interface{}) {
+    if fields == nil {
+        // simple case: just log with error
+        z.Error(msg, err)
+        return
+    }
+    // apply fields then log error or message
+    tmp := zerologAdapter{l: z.l.withFields(fields)}
+    if err != nil {
+        tmp.l.l.Error().Err(err).Msg(msg)
+        return
+    }
+    tmp.l.ErrorMsg(msg)
 }
 
 // NewFacade cria uma nova instância de LoggerFacade baseada no zerolog
@@ -74,32 +97,46 @@ func NewFacade(w io.Writer, level Level) LoggerFacade { return zerologAdapter{l:
 // NewDefaultFacade creates a LoggerFacade with default settings (stdout/LOG_LEVEL).
 func NewDefaultFacade() LoggerFacade { return zerologAdapter{l: newDefaultLogger()} }
 
-// global é o logger usado pelas funções de atalho do pacote. Pode ser
-// substituído com SetGlobal para usar outra implementação ou uma instância.
-var global LoggerFacade = NewDefaultFacade()
+// globalLogger stores the package-level logger in an atomic.Value to make
+// reads/writes safe for concurrent access. Use SetGlobal/GetGlobal to access.
+var globalLogger atomic.Value
 
-// SetGlobal substitui o logger global usado pelas funções de atalho.
-func SetGlobal(l LoggerFacade) { global = l }
+func init() {
+    globalLogger.Store(NewDefaultFacade())
+}
 
-// GetGlobal retorna o logger global atual.
-func GetGlobal() LoggerFacade { return global }
+// SetGlobal replaces the package-level global logger.
+func SetGlobal(l LoggerFacade) { globalLogger.Store(l) }
+
+// GetGlobal returns the package-level global logger.
+func GetGlobal() LoggerFacade {
+    if v := globalLogger.Load(); v != nil {
+        if lf, ok := v.(LoggerFacade); ok {
+            return lf
+        }
+    }
+    // fallback: store and return a default facade
+    def := NewDefaultFacade()
+    globalLogger.Store(def)
+    return def
+}
 
 // Atalho de pacote para usar o logger global.
-func Info(msg string)  { global.Info(msg) }
-func Debug(msg string) { global.Debug(msg) }
-func Warn(msg string)  { global.Warn(msg) }
-func Error(msg string, err ...error) { global.Error(msg, err...) }
+func Info(msg string)  { GetGlobal().Info(msg) }
+func Debug(msg string) { GetGlobal().Debug(msg) }
+func Warn(msg string)  { GetGlobal().Warn(msg) }
+func Error(msg string, err error) { GetGlobal().Error(msg, err) }
 
-func Infof(format string, args ...interface{})  { global.Infof(format, args...) }
-func Debugf(format string, args ...interface{}) { global.Debugf(format, args...) }
-func Warnf(format string, args ...interface{})  { global.Warnf(format, args...) }
-func Errorf(format string, args ...interface{}) { global.Errorf(format, args...) }
+func Infof(format string, args ...interface{})  { GetGlobal().Infof(format, args...) }
+func Debugf(format string, args ...interface{}) { GetGlobal().Debugf(format, args...) }
+func Warnf(format string, args ...interface{})  { GetGlobal().Warnf(format, args...) }
+func Errorf(format string, args ...interface{}) { GetGlobal().Errorf(format, args...) }
+func Errf(format string, err error, args ...interface{}) { GetGlobal().Errf(format, err, args...) }
+func Errorw(msg string, err error, fields map[string]interface{}) { GetGlobal().Errorw(msg, err, fields) }
 
-func WithField(k string, v interface{}) LoggerFacade { return global.WithField(k, v) }
-
-// WithFieldsGlobal é um atalho que aplica os campos ao logger global e
-// retorna um novo LoggerFacade.
-func WithFieldsGlobal(fields map[string]interface{}) LoggerFacade { return global.WithFields(fields) }
+// NOTE: prefer using `GetGlobal()` to access the global facade and call
+// `WithField`/`WithFields` on it. Deliberately avoid adding global
+// `WithField`/`WithFields` shortcuts to keep the API explicit.
 
 // ContextWithLogger stores a LoggerFacade in the context so callers can inject
 // a logger instance (facade) that will be used by library code.
@@ -108,20 +145,17 @@ func ContextWithLogger(ctx context.Context, l LoggerFacade) context.Context {
 }
 
 // LoggerFromContext extracts a LoggerFacade from the context. The boolean indicates whether a logger was present.
-// For backward compatibility, if a concrete Logger is stored in the context it will be wrapped.
+// The context value must be a LoggerFacade (no compatibility fallbacks are performed).
 func LoggerFromContext(ctx context.Context) (LoggerFacade, bool) {
-	if ctx == nil {
-		return nil, false
-	}
-	if v := ctx.Value(loggerKey); v != nil {
-		if lf, ok := v.(LoggerFacade); ok {
-			return lf, true
-		}
-		if l, ok := v.(loggerImpl); ok {
-			return zerologAdapter{l: l}, true
-		}
-	}
-	return nil, false
+    if ctx == nil {
+        return nil, false
+    }
+    if v := ctx.Value(loggerKey); v != nil {
+        if lf, ok := v.(LoggerFacade); ok {
+            return lf, true
+        }
+    }
+    return nil, false
 }
 
 // FromContextFacade returns a LoggerFacade extracted from the context if present; otherwise returns the global logger.

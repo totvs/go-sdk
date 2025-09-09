@@ -1,4 +1,4 @@
-package logger
+package log
 
 import (
 	"context"
@@ -184,10 +184,3 @@ func generateTraceID() string {
 // GenerateTraceID returns a new trace id. Exported for use by integration
 // helpers (e.g., HTTP middleware) that need to generate or fallback a trace id.
 func GenerateTraceID() string { return generateTraceID() }
-
-// Info/Debug/Warn/Error expose the underlying zerolog event so callers can use the familiar API
-// without importing zerolog themselves.
-// Note: we intentionally do not expose methods that return zerolog-specific
-// types. Callers should use the LoggerFacade abstraction instead.
-
-// HTTP middleware functionality has been moved to the `log/middleware` package.

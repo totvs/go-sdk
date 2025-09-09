@@ -1,4 +1,4 @@
-package logger
+package log
 
 import (
 	"context"
@@ -177,10 +177,3 @@ func FromContextFacade(ctx context.Context) LoggerFacade {
 	}
 	return GetGlobal()
 }
-
-// GetLoggerFromRequest is a convenience helper for HTTP handlers.
-// It returns a LoggerFacade extracted from the request context when present,
-// otherwise returns the global logger. The second return value indicates
-// whether the middleware already logged the request (so handlers can avoid
-// duplicating the same request-level message).
-// GetLoggerFromRequest has moved to the `log/middleware` package.

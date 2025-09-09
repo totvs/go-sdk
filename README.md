@@ -14,7 +14,7 @@ Projeto base (SDK) em Go que serve como blueprint para outros projetos da TOTVS.
 
 1. Módulos/pacotes incluídos
 
-- `log/` — utilitários de logging (pacote `logger`).
+- `log/` — utilitários de logging (pacote `log`).
 
 ```text
 module github.com/totvs/go-sdk
@@ -37,7 +37,7 @@ replace github.com/totvs/go-sdk => /caminho/para/repositorio
 
 Uso do logger (exemplo)
 
-Importe o pacote e use as funções do pacote `logger`:
+Importe o pacote e use as funções do pacote `log` (ex.: `logger "github.com/totvs/go-sdk/log"`):
 
 ```go
 import (
@@ -63,11 +63,14 @@ func main() {
 Middleware HTTP (exemplo rápido)
 
 ```go
+import (
+    "net/http"
+    middleware "github.com/totvs/go-sdk/log/middleware/http"
+)
+
 mux := http.NewServeMux()
 // ... registre handlers ...
-http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
-// or using the middleware package explicitly:
-// http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
+http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
 ```
 
 ## Versionamento e publicação

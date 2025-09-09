@@ -1,4 +1,4 @@
-package logger
+package log_test
 
 import (
 	"bytes"
@@ -11,12 +11,13 @@ import (
 	"strings"
 	"testing"
 
-	mware "github.com/totvs/go-sdk/log/middleware"
+	logger "github.com/totvs/go-sdk/log"
+	mware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
 func TestWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := logger.NewFacade(buf, logger.DebugLevel)
 
 	fields := map[string]interface{}{
 		"str": "s",
@@ -57,14 +58,14 @@ func TestWithFields(t *testing.T) {
 
 func TestContextLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := logger.NewFacade(buf, logger.DebugLevel)
 
-	ctx := ContextWithLogger(context.Background(), f)
-	if _, ok := LoggerFromContext(ctx); !ok {
+	ctx := logger.ContextWithLogger(context.Background(), f)
+	if _, ok := logger.LoggerFromContext(ctx); !ok {
 		t.Fatal("expected logger in context")
 	}
 
-	lg := FromContextFacade(ctx)
+	lg := logger.FromContextFacade(ctx)
 	lg.Info("ctxmsg")
 
 	if !strings.Contains(buf.String(), "ctxmsg") {
@@ -72,7 +73,7 @@ func TestContextLogger(t *testing.T) {
 	}
 
 	// nil context should not panic and should return false
-	if _, ok := LoggerFromContext(nil); ok {
+	if _, ok := logger.LoggerFromContext(nil); ok {
 		t.Fatal("expected no logger from nil context")
 	}
 }

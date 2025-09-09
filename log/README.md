@@ -9,7 +9,7 @@ Constants
 - `logger.TraceIDField` — JSON field name used in logs (`trace_id`).
 
 Estrutura:
-- `logger.go` — implementação pública do logger no pacote `logger`.
+- `logger.go` — implementação pública do logger no pacote `log`.
 - `internal/` — (opcional) helpers privados.
 
 
@@ -89,7 +89,7 @@ import (
     "errors"
 
     logger "github.com/totvs/go-sdk/log"
-    middleware "github.com/totvs/go-sdk/log/middleware"
+    middleware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
 func main() {

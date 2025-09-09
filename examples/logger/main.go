@@ -6,7 +6,7 @@ import (
 	"os"
 
 	logger "github.com/totvs/go-sdk/log"
-	middleware "github.com/totvs/go-sdk/log/middleware"
+	middleware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
 func main() {

@@ -35,9 +35,9 @@ func HTTPMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) fu
 
 			// prepare a facade that includes trace
 			l := base.WithTraceFromContext(ctx)
-            // method/path are added as structured fields; trace_id is already
-            // added by WithTraceFromContext above so avoid duplicating it here.
-            l2 := l.WithFields(map[string]interface{}{"method": r.Method, "path": r.URL.Path})
+			// method/path are added as structured fields; trace_id is already
+			// added by WithTraceFromContext above so avoid duplicating it here.
+			l2 := l.WithFields(map[string]interface{}{"method": r.Method, "path": r.URL.Path})
 
 			if opts.LogRequest {
 				l2.Info("http request received")

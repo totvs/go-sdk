@@ -43,6 +43,8 @@ Development guidelines
 - Patches and automated edits
   - Use the `apply_patch` format when producing automated patches inside this environment.
   - Keep patches focused and small; update docs and examples whenever the public API changes.
+  - Do NOT run `git` commands that modify repository state from the agent (for example: `git add`, `git commit`, `git push`, `git reset`, or other write operations).
+    Use the `apply_patch` tooling to propose and apply code changes in this environment; leave actual git staging/commits/pushes to a human or CI.
 
 - Build / CI
   - Useful targets: `make build`, `make test`, `make cover`, `make ci`.

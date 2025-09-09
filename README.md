@@ -48,10 +48,20 @@ import (
 )
 
 func main() {
+    // exemplo com a implementação direta (compatível com zerolog)
     l := logger.New(os.Stdout, logger.InfoLevel)
     ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
     l = logger.WithTraceFromContext(ctx, l)
     l.Info().Msg("aplicação iniciada")
+
+    // exemplo usando a fachada (abstração) — permite trocar a lib de logging no futuro
+    f := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    f = f.WithTraceFromContext(ctx)
+    f.Info("aplicação iniciada (facade)")
+
+    // tornar este logger a instância global utilizada por atalhos do pacote
+    logger.SetGlobal(f)
+    logger.Info("usando logger global")
 }
 ```
 
@@ -94,13 +104,18 @@ import (
 )
 
 func main() {
-    // cria logger que escreve em stdout com nível Info
-    l := logger.New(os.Stdout, logger.InfoLevel)
+    // criando uma façade (abstração) o código consumidor não precisa depender
+    // diretamente de zerolog e pode usar a mesma API independente da implementação.
+    f := logger.NewFacade(os.Stdout, logger.InfoLevel)
 
-    // adiciona trace no contexto e aplica ao logger
+    // adiciona trace no contexto e aplica ao logger (facade)
     ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-    l = logger.WithTraceFromContext(ctx, l)
-    l.InfoMsg("aplicação iniciada")
+    f = f.WithTraceFromContext(ctx)
+    f.Info("aplicação iniciada")
+
+    // opcional: definir como logger global para usar atalhos como `logger.Info(...)`
+    logger.SetGlobal(f)
+    logger.Info("mensagem via logger global")
 }
 ```
 

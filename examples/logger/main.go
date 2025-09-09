@@ -9,21 +9,25 @@ import (
 )
 
 func main() {
-	// basic logger
-	l := logger.New(os.Stdout, logger.InfoLevel)
+	// usando a fachada (abstração)
+	f := logger.NewFacade(os.Stdout, logger.InfoLevel)
 	ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-	l = logger.WithTraceFromContext(ctx, l)
-	l.Info().Msg("application started")
+	f = f.WithTraceFromContext(ctx)
+	f.Info("application started (facade)")
 
-	// inject logger into context for library code
+	// definir como logger global para usar atalhos do pacote
+	logger.SetGlobal(f)
+	logger.Info("using global logger")
+
+	// ainda é possível injetar o Logger concreto no contexto e extrair uma facade
 	lg := logger.New(os.Stdout, logger.DebugLevel)
 	ctx2 := logger.ContextWithLogger(context.Background(), lg)
-	lg2 := logger.FromContext(ctx2)
-	lg2.Info().Msg("using injected logger")
+	f2 := logger.FromContextFacade(ctx2)
+	f2.Info("using injected logger via facade")
 
-	// add fields
-	lg3 := logger.WithFields(lg2, map[string]interface{}{"service": "orders", "version": 3})
-	lg3.Info().Msg("request processed")
+	// adicionar campos via facade
+	f3 := f2.WithFields(map[string]interface{}{"service": "orders", "version": 3})
+	f3.Info("request processed")
 
 	// HTTP server with middleware
 	mux := http.NewServeMux()

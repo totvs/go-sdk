@@ -67,3 +67,14 @@ Notes
 - `zerolog` is intentionally encapsulated; the facade was introduced to simplify future migration to other libraries.
 - If you need to run `go` commands that touch the module cache or network, notify the environment owner: some environments
   restrict writing to the module cache or disallow network access.
+
+Agent Git Policy
+
+- Do NOT execute any `git` command that modifies repository state (local or remote). This includes but is not limited to:
+  - `git add`, `git commit`, `git commit --amend`, `git rebase`, `git merge`, `git reset`, `git rm`, `git clean`, `git tag`, `git push`, `git fetch`, `git pull`, `git checkout` (when creating or switching branches), or any other command that writes or rewrites refs, objects, or remote state.
+- Read-only `git` commands (for inspection) are allowed: e.g. `git status` (read-only), `git log`, `git show`, `git diff`, `git ls-files`, `git rev-parse`, `git branch --list`. Prefer `rg`/`sed`/`cat` for file inspection when possible.
+- To modify files, use the provided `apply_patch` mechanism. Do not stage, commit or push changes with `git` yourself — leave commits and pushes to a human operator or CI.
+- If you believe a `git` write operation is absolutely necessary, explicitly ask for human approval and explain why; do not proceed without consent.
+- Do not attempt to hide or rollback your actions with `git` commands; remediation should be handled by a human.
+
+These rules exist to keep repository history and remote state under human control and to prevent accidental or unauthorized changes.

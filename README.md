@@ -48,16 +48,11 @@ import (
 )
 
 func main() {
-    // exemplo com a implementação direta (compatível com zerolog)
-    l := logger.New(os.Stdout, logger.InfoLevel)
-    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-    l = logger.WithTraceFromContext(ctx, l)
-    l.Info().Msg("aplicação iniciada")
-
-    // exemplo usando a fachada (abstração) — permite trocar a lib de logging no futuro
+    // use the facade API (decoupled from the concrete implementation)
     f := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
     f = f.WithTraceFromContext(ctx)
-    f.Info("aplicação iniciada (facade)")
+    f.Info("aplicação iniciada")
 
     // tornar este logger a instância global utilizada por atalhos do pacote
     logger.SetGlobal(f)
@@ -122,10 +117,10 @@ func main() {
 Adicionar campos e usar helpers:
 
 ```go
-lg := logger.New(os.Stdout, logger.DebugLevel)
-lg = lg.WithField("service", "orders")
-lg = lg.WithFields(map[string]interface{}{"version": 3, "region": "eu"})
-lg.DebugMsg("config carregada")
+f := logger.NewFacade(os.Stdout, logger.DebugLevel)
+f = f.WithField("service", "orders")
+f = f.WithFields(map[string]interface{}{"version": 3, "region": "eu"})
+f.Debug("config carregada")
 ```
 
 HTTP middleware (gera `trace id` automaticamente se estiver ausente):
@@ -140,7 +135,7 @@ mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
 
 // ou com logger customizado
-// myLogger := logger.New(os.Stdout, logger.DebugLevel)
+// myLogger := logger.NewFacade(os.Stdout, logger.DebugLevel)
 // http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myLogger)(mux))
 ```
 

@@ -50,10 +50,10 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 		t.Fatalf("expected global message, got: %s", buf.String())
 	}
 
-	// injecting concrete Logger into context and extracting facade
+	// injecting a facade into context and extracting it
 	buf.Reset()
-	l := New(buf, DebugLevel)
-	ctx := ContextWithLogger(context.Background(), l) // context used only to store logger
+	fctx := NewFacade(buf, DebugLevel)
+	ctx := ContextWithLogger(context.Background(), fctx)
 	f2 := FromContextFacade(ctx)
 	f2.Info("from-ctx")
 	if !strings.Contains(buf.String(), "from-ctx") {

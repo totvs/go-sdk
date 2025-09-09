@@ -11,10 +11,10 @@ import (
 
 func TestWithFieldAddsSingleField(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf, DebugLevel)
+	f := NewFacade(buf, DebugLevel)
 
-	lg := l.WithField("service", "orders")
-	lg.InfoMsg("started")
+	lg := f.WithField("service", "orders")
+	lg.Info("started")
 
 	out := buf.String()
 	if out == "" {
@@ -36,9 +36,9 @@ func TestWithFieldAddsSingleField(t *testing.T) {
 
 func TestHTTPMiddlewareGeneratesTraceIfMissing(t *testing.T) {
 	buf := &bytes.Buffer{}
-	base := New(buf, DebugLevel)
+	baseF := NewFacade(buf, DebugLevel)
 
-	handler := HTTPMiddlewareWithLogger(base)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	}))
@@ -62,9 +62,9 @@ func TestHTTPMiddlewareGeneratesTraceIfMissing(t *testing.T) {
 
 func TestHTTPMiddlewarePreservesProvidedTrace(t *testing.T) {
 	buf := &bytes.Buffer{}
-	base := New(buf, DebugLevel)
+	baseF := NewFacade(buf, DebugLevel)
 
-	handler := HTTPMiddlewareWithLogger(base)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	}))
@@ -83,5 +83,34 @@ func TestHTTPMiddlewarePreservesProvidedTrace(t *testing.T) {
 	s := buf.String()
 	if !strings.Contains(s, "trace-123") {
 		t.Fatalf("expected log to contain provided trace id, got: %s", s)
+	}
+}
+
+func TestHTTPMiddlewareInjectsLogger(t *testing.T) {
+	buf := &bytes.Buffer{}
+	baseF := NewFacade(buf, DebugLevel)
+
+	handler := HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// handler should avoid duplicating the middleware log when middleware already logged
+		if !LoggedFromContext(r.Context()) {
+			if lf, ok := LoggerFromContext(r.Context()); ok {
+				lf.Info("handler-log")
+			}
+		}
+		w.Write([]byte("ok"))
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	s := buf.String()
+	// middleware should have logged the request
+	if !strings.Contains(s, "http request received") {
+		t.Fatalf("expected middleware to log request, got: %s", s)
+	}
+	// handler should not log the same message
+	if strings.Contains(s, "handler-log") {
+		t.Fatalf("expected handler not to duplicate middleware log, got: %s", s)
 	}
 }

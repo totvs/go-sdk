@@ -14,7 +14,7 @@ import (
 
 func TestWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf, DebugLevel)
+	f := NewFacade(buf, DebugLevel)
 
 	fields := map[string]interface{}{
 		"str": "s",
@@ -25,8 +25,8 @@ func TestWithFields(t *testing.T) {
 		"obj": map[string]interface{}{"a": "b"},
 	}
 
-	lg := WithFields(l, fields)
-	lg.Info().Msg("testfields")
+	lg := f.WithFields(fields)
+	lg.Info("testfields")
 
 	out := buf.String()
 	if out == "" {
@@ -55,15 +55,15 @@ func TestWithFields(t *testing.T) {
 
 func TestContextLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	l := New(buf, DebugLevel)
+	f := NewFacade(buf, DebugLevel)
 
-	ctx := ContextWithLogger(context.Background(), l)
+	ctx := ContextWithLogger(context.Background(), f)
 	if _, ok := LoggerFromContext(ctx); !ok {
 		t.Fatal("expected logger in context")
 	}
 
-	lg := FromContext(ctx)
-	lg.Info().Msg("ctxmsg")
+	lg := FromContextFacade(ctx)
+	lg.Info("ctxmsg")
 
 	if !strings.Contains(buf.String(), "ctxmsg") {
 		t.Fatalf("expected ctxmsg in output, got: %s", buf.String())
@@ -76,7 +76,7 @@ func TestContextLogger(t *testing.T) {
 }
 
 func TestHTTPMiddlewareLogsTrace(t *testing.T) {
-	// capture stdout because HTTPMiddleware uses NewDefault() which writes to stdout
+	// capture stdout because HTTPMiddleware uses NewDefaultFacade() which writes to stdout
 	old := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {

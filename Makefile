@@ -5,6 +5,9 @@
 TESTPKGS := ./...
 TESTFLAGS ?=
 
+.PHONY: run-example
+
+
 # Executa todos os testes
 test:
 	go test $(TESTFLAGS) $(TESTPKGS)
@@ -46,3 +49,6 @@ tidy:
 ## Target para CI: formata, analisa e testa
 ci: fmt vet test
 
+# Run the example in ./examples/logger
+run-example:
+	cd examples/logger && go run .

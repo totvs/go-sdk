@@ -10,31 +10,39 @@ import (
 
 func main() {
 	// usando a fachada (abstração)
-	f := logger.NewFacade(os.Stdout, logger.InfoLevel)
-	ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-	f = f.WithTraceFromContext(ctx)
-	f.Info("application started (facade)")
+	myAppInstanceLogger1 := logger.NewFacade(os.Stdout, logger.InfoLevel)
+	ctx1 := logger.ContextWithTrace(context.Background(), "trace-1234")
+	myAppInstanceLogger1 = myAppInstanceLogger1.WithTraceFromContext(ctx1)
+	myAppInstanceLogger1.Info("application started (facade)")
 
 	// definir como logger global para usar atalhos do pacote
-	logger.SetGlobal(f)
+	logger.SetGlobal(myAppInstanceLogger1)
 	logger.Info("using global logger")
 
-	// ainda é possível injetar o Logger concreto no contexto e extrair uma facade
-	lg := logger.New(os.Stdout, logger.DebugLevel)
-	ctx2 := logger.ContextWithLogger(context.Background(), lg)
-	f2 := logger.FromContextFacade(ctx2)
-	f2.Info("using injected logger via facade")
+	// ainda é possível injetar uma facade no contexto e extrair ela depois
+	myAppInstanceLogger2 := logger.NewFacade(os.Stdout, logger.DebugLevel)
+	ctx2 := logger.ContextWithLogger(context.Background(), myAppInstanceLogger2)
+	myAppInstanceLogger3 := logger.FromContextFacade(ctx2)
+	myAppInstanceLogger3.Info("using injected logger via facade")
 
 	// adicionar campos via facade
-	f3 := f2.WithFields(map[string]interface{}{"service": "orders", "version": 3})
-	f3.Info("request processed")
+	f3 := myAppInstanceLogger3.WithFields(map[string]interface{}{"service": "orders", "version": 3})
+	f3.Info("request processed1")
+	f3.Info("request processed2")
 
 	// HTTP server with middleware
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// avoid duplicating the middleware log — only log here if middleware
+		// did not already log the request
+		if !logger.LoggedFromContext(r.Context()) {
+			if lf, ok := logger.LoggerFromContext(r.Context()); ok {
+				lf.Info("handler received request")
+			}
+		}
 		w.Write([]byte("ok"))
 	})
 
-	// listen on :8080 (ctrl-c to stop)
-	http.ListenAndServe(":8080", logger.HTTPMiddleware(mux))
+	// listen on :8080 (ctrl-c to stop) — pass the same app logger instance to the middleware
+	http.ListenAndServe(":8080", logger.HTTPMiddlewareWithLogger(myAppInstanceLogger1)(mux))
 }

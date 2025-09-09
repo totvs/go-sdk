@@ -9,7 +9,7 @@ Scope
 Relevant structure
 - `log/` — the `logger` package containing logging utilities.
   - `log/logger.go` — concrete wrapper around `zerolog`.
-  - `log/facade.go` — public facade (`LoggerFacade`) and adapter for the existing `Logger`.
+  - `log/facade.go` — public facade (`LoggerFacade`) and adapter for the internal logger implementation.
   - `log/*.go` — package tests and documentation (`log/logger_test.go`, `log/facade_test.go`, `log/README.md`).
 - `examples/` — usage examples (e.g. `examples/logger/main.go`).
 - `Makefile` — common targets: `test`, `test-v`, `test-race`, `cover`, `cover-html`, `fmt`, `vet`, `build`, `tidy`, `ci`.
@@ -20,9 +20,9 @@ Development guidelines
   - Prefer the `LoggerFacade` abstraction (in `log/facade.go`) for new code that emits logs to keep callers decoupled
     from a specific implementation (`zerolog`).
   - Quick API summary:
-    - Constructors: `New(w, level) -> Logger`, `NewFacade(w, level) -> LoggerFacade`, `NewDefault()`, `NewDefaultFacade()`.
-    - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger`, `LoggerFromContext`, `FromContext`, `FromContextFacade`.
-    - Field helpers: `WithField`, `WithFields` (available on both `Logger` and `LoggerFacade`).
+    - Constructors: `NewFacade(w, level) -> LoggerFacade`, `NewDefaultFacade()`.
+  - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContextFacade`.
+    - Field helpers: `WithField`, `WithFields` (available on `LoggerFacade`).
     - Globals/shortcuts: `SetGlobal`, `GetGlobal` and package-level shortcuts `logger.Info/Debug/Warn/Error` and `logger.Infof/...`.
 
 - Adding an adapter for another logging library
@@ -57,4 +57,3 @@ Notes
 - `zerolog` is intentionally encapsulated; the facade was introduced to simplify future migration to other libraries.
 - If you need to run `go` commands that touch the module cache or network, notify the environment owner: some environments
   restrict writing to the module cache or disallow network access.
-

@@ -27,14 +27,14 @@ type LoggerFacade interface {
 
 // zerologAdapter adapta o Logger concreto (baseado em zerolog) para a
 // interface LoggerFacade.
-type zerologAdapter struct{ l Logger }
+type zerologAdapter struct{ l loggerImpl }
 
 func (z zerologAdapter) WithField(k string, v interface{}) LoggerFacade {
-	return zerologAdapter{l: z.l.WithField(k, v)}
+	return zerologAdapter{l: z.l.withField(k, v)}
 }
 
 func (z zerologAdapter) WithFields(fields map[string]interface{}) LoggerFacade {
-	return zerologAdapter{l: z.l.WithFields(fields)}
+	return zerologAdapter{l: z.l.withFields(fields)}
 }
 
 func (z zerologAdapter) WithTraceFromContext(ctx context.Context) LoggerFacade {
@@ -61,13 +61,10 @@ func (z zerologAdapter) Errorf(format string, args ...interface{}) {
 
 // NewFacade cria uma nova instância de LoggerFacade baseada no zerolog
 // existente. Use esta função para obter uma instância específica.
-func NewFacade(w io.Writer, level Level) LoggerFacade { return zerologAdapter{l: New(w, level)} }
+func NewFacade(w io.Writer, level Level) LoggerFacade { return zerologAdapter{l: newLogger(w, level)} }
 
-// NewDefaultFacade cria um LoggerFacade com as configurações padrão (stdout/LOG_LEVEL).
-func NewDefaultFacade() LoggerFacade { return zerologAdapter{l: NewDefault()} }
-
-// Wrap converte o Logger concreto (existente) para a interface LoggerFacade.
-func Wrap(l Logger) LoggerFacade { return zerologAdapter{l: l} }
+// NewDefaultFacade creates a LoggerFacade with default settings (stdout/LOG_LEVEL).
+func NewDefaultFacade() LoggerFacade { return zerologAdapter{l: newDefaultLogger()} }
 
 // global é o logger usado pelas funções de atalho do pacote. Pode ser
 // substituído com SetGlobal para usar outra implementação ou uma instância.
@@ -96,11 +93,33 @@ func WithField(k string, v interface{}) LoggerFacade { return global.WithField(k
 // retorna um novo LoggerFacade.
 func WithFieldsGlobal(fields map[string]interface{}) LoggerFacade { return global.WithFields(fields) }
 
-// FromContextFacade retorna um LoggerFacade extraído do contexto se
-// presente; caso contrário retorna o logger global.
+// ContextWithLogger stores a LoggerFacade in the context so callers can inject
+// a logger instance (facade) that will be used by library code.
+func ContextWithLogger(ctx context.Context, l LoggerFacade) context.Context {
+	return context.WithValue(ctx, loggerKey, l)
+}
+
+// LoggerFromContext extracts a LoggerFacade from the context. The boolean indicates whether a logger was present.
+// For backward compatibility, if a concrete Logger is stored in the context it will be wrapped.
+func LoggerFromContext(ctx context.Context) (LoggerFacade, bool) {
+	if ctx == nil {
+		return nil, false
+	}
+	if v := ctx.Value(loggerKey); v != nil {
+		if lf, ok := v.(LoggerFacade); ok {
+			return lf, true
+		}
+		if l, ok := v.(loggerImpl); ok {
+			return zerologAdapter{l: l}, true
+		}
+	}
+	return nil, false
+}
+
+// FromContextFacade returns a LoggerFacade extracted from the context if present; otherwise returns the global logger.
 func FromContextFacade(ctx context.Context) LoggerFacade {
-	if l, ok := LoggerFromContext(ctx); ok {
-		return Wrap(l)
+	if lf, ok := LoggerFromContext(ctx); ok {
+		return lf
 	}
 	return GetGlobal()
 }

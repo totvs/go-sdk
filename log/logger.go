@@ -15,6 +15,7 @@ type ctxKey string
 
 const traceIDKey ctxKey = "trace-id"
 const loggerKey ctxKey = "logger"
+const loggedKey ctxKey = "logged"
 
 // Level represents a logging level independent from zerolog so callers don't
 // need to import zerolog directly.
@@ -45,17 +46,20 @@ func (l Level) toZerolog() zerolog.Level {
 // Logger is a lightweight wrapper around zerolog.Logger that keeps the
 // concrete zerolog type internal to the package. Consumers can use the
 // returned Logger without importing zerolog.
-type Logger struct{ l zerolog.Logger }
+// loggerImpl is the concrete logger implementation based on zerolog.
+// It is unexported so callers are encouraged to use the LoggerFacade
+// abstraction instead of depending on zerolog directly.
+type loggerImpl struct{ l zerolog.Logger }
 
 // New creates a logger that writes JSON to the provided writer and uses the given level.
-func New(w io.Writer, level Level) Logger {
+func newLogger(w io.Writer, level Level) loggerImpl {
 	zerolog.TimeFieldFormat = time.RFC3339
 	lg := zerolog.New(w).With().Timestamp().Logger().Level(level.toZerolog())
-	return Logger{l: lg}
+	return loggerImpl{l: lg}
 }
 
 // NewDefault returns a JSON logger writing to stdout with level taken from LOG_LEVEL or Info.
-func NewDefault() Logger {
+func newDefaultLogger() loggerImpl {
 	lvl := InfoLevel
 	if s := os.Getenv("LOG_LEVEL"); s != "" {
 		switch s {
@@ -69,12 +73,31 @@ func NewDefault() Logger {
 			lvl = ErrorLevel
 		}
 	}
-	return New(os.Stdout, lvl)
+	return newLogger(os.Stdout, lvl)
 }
 
 // ContextWithTrace returns a new context containing the provided trace id.
 func ContextWithTrace(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, traceIDKey, traceID)
+}
+
+// ContextWithLogged marks the context indicating the middleware already emitted
+// a request-level log entry for this request.
+func ContextWithLogged(ctx context.Context) context.Context {
+	return context.WithValue(ctx, loggedKey, true)
+}
+
+// LoggedFromContext returns true if the middleware logged the request already.
+func LoggedFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	if v := ctx.Value(loggedKey); v != nil {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return false
 }
 
 // TraceIDFromContext extracts the trace id from the context, if present.
@@ -91,42 +114,20 @@ func TraceIDFromContext(ctx context.Context) string {
 }
 
 // WithTraceFromContext returns a logger that includes the `trace_id` field when a trace id exists in the context.
-func WithTraceFromContext(ctx context.Context, l Logger) Logger {
+func WithTraceFromContext(ctx context.Context, l loggerImpl) loggerImpl {
 	if tid := TraceIDFromContext(ctx); tid != "" {
-		return Logger{l: l.l.With().Str("trace_id", tid).Logger()}
+		return loggerImpl{l: l.l.With().Str("trace_id", tid).Logger()}
 	}
 	return l
 }
 
-// ContextWithLogger stores a Logger in the context so callers can inject a logger that will be used by library code.
-func ContextWithLogger(ctx context.Context, l Logger) context.Context {
-	return context.WithValue(ctx, loggerKey, l)
-}
-
-// LoggerFromContext extracts a Logger from the context. The boolean indicates whether a logger was present.
-func LoggerFromContext(ctx context.Context) (Logger, bool) {
-	if ctx == nil {
-		return Logger{}, false
-	}
-	if v := ctx.Value(loggerKey); v != nil {
-		if lg, ok := v.(Logger); ok {
-			return lg, true
-		}
-	}
-	return Logger{}, false
-}
-
-// FromContext returns the logger stored in the context or a sensible default created by NewDefault when none is present.
-func FromContext(ctx context.Context) Logger {
-	if l, ok := LoggerFromContext(ctx); ok {
-		return l
-	}
-	return NewDefault()
-}
+// NOTE: context-based logger storage is handled via the facade helpers in `facade.go`.
+// The concrete Logger remains available for callers that need zerolog-specific features,
+// but context helpers that store/retrieve loggers use the LoggerFacade abstraction.
 
 // WithFields returns a logger augmented with the provided fields. It accepts a map of string->interface{} and will use
 // type-specific setters when possible, falling back to `Interface` for unknown types.
-func WithFields(l Logger, fields map[string]interface{}) Logger {
+func withFields(l loggerImpl, fields map[string]interface{}) loggerImpl {
 	c := l.l.With()
 	for k, v := range fields {
 		switch val := v.(type) {
@@ -150,22 +151,24 @@ func WithFields(l Logger, fields map[string]interface{}) Logger {
 			c = c.Interface(k, val)
 		}
 	}
-	return Logger{l: c.Logger()}
+	return loggerImpl{l: c.Logger()}
 }
 
 // WithField returns a new logger with a single additional field.
-func (l Logger) WithField(k string, v interface{}) Logger {
-	return Logger{l: l.l.With().Interface(k, v).Logger()}
+func (l loggerImpl) withField(k string, v interface{}) loggerImpl {
+	return loggerImpl{l: l.l.With().Interface(k, v).Logger()}
 }
 
-// WithFields method mirrors the package function for convenience.
-func (l Logger) WithFields(fields map[string]interface{}) Logger { return WithFields(l, fields) }
+// withFields method mirrors the package function for convenience.
+func (l loggerImpl) withFields(fields map[string]interface{}) loggerImpl {
+	return withFields(l, fields)
+}
 
-// Convenience message helpers so callers don't need to call the zerolog event methods directly.
-func (l Logger) InfoMsg(msg string)  { l.Info().Msg(msg) }
-func (l Logger) DebugMsg(msg string) { l.Debug().Msg(msg) }
-func (l Logger) WarnMsg(msg string)  { l.Warn().Msg(msg) }
-func (l Logger) ErrorMsg(msg string) { l.Error().Msg(msg) }
+// Convenience message helpers so callers inside the package don't need to call the zerolog event methods directly.
+func (l loggerImpl) InfoMsg(msg string)  { l.l.Info().Msg(msg) }
+func (l loggerImpl) DebugMsg(msg string) { l.l.Debug().Msg(msg) }
+func (l loggerImpl) WarnMsg(msg string)  { l.l.Warn().Msg(msg) }
+func (l loggerImpl) ErrorMsg(msg string) { l.l.Error().Msg(msg) }
 
 // generateTraceID creates a 16-byte hex id (UUID-like) for request tracing.
 func generateTraceID() string {
@@ -186,13 +189,11 @@ func generateTraceID() string {
 
 // Info/Debug/Warn/Error expose the underlying zerolog event so callers can use the familiar API
 // without importing zerolog themselves.
-func (l Logger) Info() *zerolog.Event  { tmp := l.l; return (&tmp).Info() }
-func (l Logger) Debug() *zerolog.Event { tmp := l.l; return (&tmp).Debug() }
-func (l Logger) Warn() *zerolog.Event  { tmp := l.l; return (&tmp).Warn() }
-func (l Logger) Error() *zerolog.Event { tmp := l.l; return (&tmp).Error() }
+// Note: we intentionally do not expose methods that return zerolog-specific
+// types. Callers should use the LoggerFacade abstraction instead.
 
 // HTTPMiddlewareWithLogger returns a middleware using the provided base logger.
-func HTTPMiddlewareWithLogger(base Logger) func(http.Handler) http.Handler {
+func HTTPMiddlewareWithLogger(base LoggerFacade) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			trace := r.Header.Get("X-Request-Id")
@@ -203,10 +204,16 @@ func HTTPMiddlewareWithLogger(base Logger) func(http.Handler) http.Handler {
 				trace = generateTraceID()
 			}
 			ctx := ContextWithTrace(r.Context(), trace)
-			// include trace and basic request info
-			l := WithTraceFromContext(ctx, base)
-			tmp := l.l.With().Str("method", r.Method).Str("path", r.URL.Path).Str("trace_id", trace).Logger()
-			(&tmp).Info().Msg("http request received")
+			// include trace and basic request info via the facade API
+			l := base.WithTraceFromContext(ctx)
+			l2 := l.WithFields(map[string]interface{}{"method": r.Method, "path": r.URL.Path, "trace_id": trace})
+			l2.Info("http request received")
+
+			// mark that middleware already logged this request and inject the
+			// (facade) logger into the request context so handlers can extract
+			// and reuse the same logger instance without duplicating the same message.
+			ctx = ContextWithLogged(ctx)
+			ctx = ContextWithLogger(ctx, l2)
 			// ensure response contains the trace id so callers can correlate
 			if w.Header().Get("X-Request-Id") == "" {
 				w.Header().Set("X-Request-Id", trace)
@@ -218,5 +225,5 @@ func HTTPMiddlewareWithLogger(base Logger) func(http.Handler) http.Handler {
 
 // HTTPMiddleware is a convenience wrapper that uses the default logger.
 func HTTPMiddleware(next http.Handler) http.Handler {
-	return HTTPMiddlewareWithLogger(NewDefault())(next)
+	return HTTPMiddlewareWithLogger(NewDefaultFacade())(next)
 }

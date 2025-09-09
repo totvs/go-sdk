@@ -23,16 +23,11 @@ import (
 )
 
 func main() {
-    // uso direto com o tipo Logger (compatível com zerolog)
-    l := logger.New(os.Stdout, logger.InfoLevel)
-    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
-    l = logger.WithTraceFromContext(ctx, l)
-    l.Info().Msg("aplicação iniciada")
-
-    // uso através da fachada (abstração) — código consumidor fica desacoplado
+    // use the facade API (decoupled from the concrete implementation)
     f := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
     f = f.WithTraceFromContext(ctx)
-    f.Info("aplicação iniciada (facade)")
+    f.Info("aplicação iniciada")
 
     // definir logger global para usar atalhos do pacote
     logger.SetGlobal(f)
@@ -44,12 +39,12 @@ Novos helpers e middleware
 
 - `WithField(key, value)` — adiciona um único campo ao logger de forma conveniente.
 - `WithFields(map[string]interface{})` — método equivalente à função de pacote para adicionar múltiplos campos.
-- `InfoMsg`, `DebugMsg`, `WarnMsg`, `ErrorMsg` — helpers que emitem uma mensagem simples (`l.InfoMsg("...")`).
+-- `Info`, `Debug`, `Warn`, `Error` on the facade — helpers that emit a simple message (`f.Info("...")`).
 
 Middleware HTTP
 
-O `HTTPMiddlewareWithLogger(base Logger)` agora gera automaticamente um `trace id` seguro quando nenhum header
-`X-Request-Id` ou `X-Correlation-Id` é fornecido pelo cliente. O id gerado é:
+`HTTPMiddlewareWithLogger(base LoggerFacade)` accepts a logger facade and will generate a secure `trace id` when
+the client does not provide `X-Request-Id` or `X-Correlation-Id`. The generated id is:
 
 - Inserido no contexto da requisição (`ContextWithTrace`).
 - Adicionado ao log como campo `trace_id`.
@@ -78,7 +73,7 @@ import (
 )
 
 func main() {
-    l := logger.New(os.Stdout, logger.InfoLevel)
+    l := logger.NewFacade(os.Stdout, logger.InfoLevel)
 
     mux := http.NewServeMux()
     mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
@@ -103,24 +98,20 @@ Uma chamada GET para `/ping` sem `X-Request-Id` pode gerar uma linha de log JSON
 }
 ```
 
-Injecting logger into context:
+Injecting logger into context (facade)
 
 ```go
-// create a logger and store it in the context so library code can use it
-lg := logger.New(os.Stdout, zerolog.DebugLevel)
+// create a facade and store it in the context so library code can use it
+lg := logger.NewFacade(os.Stdout, zerolog.DebugLevel)
 ctx := logger.ContextWithLogger(context.Background(), lg)
 
-// later, library code can get the concrete logger or a facade wrapper
-lg2 := logger.FromContext(ctx) // returns Logger
-lg2.Info().Msg("using injected logger")
-
-// if you want a facade extracted from context (to use the abstract API):
-f := FromContextFacade(ctx)
+// later, library code extracts a facade from the context and uses it
+f := logger.FromContextFacade(ctx)
 f.Info("using injected logger via facade")
 
-// adding multiple fields conveniently (concrete or facade)
-lg3 := logger.WithFields(lg2, map[string]interface{}{"service": "orders", "version": 3})
-lg3.Info().Msg("request processed")
+// adding multiple fields conveniently via the facade
+f3 := f.WithFields(map[string]interface{}{"service": "orders", "version": 3})
+f3.Info("request processed")
 ```
 
 <!-- exemplo executável removido -->

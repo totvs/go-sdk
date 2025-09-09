@@ -2,6 +2,12 @@
 
 Este módulo fornece um utilitário de logging baseado em `zerolog`, com saída em JSON e suporte a `trace_id`.
 
+Constants
+
+- `logger.TraceIDHeader` — header name used for trace id (`X-Request-Id`).
+- `logger.TraceIDCorrelationHeader` — alternate header name (`X-Correlation-Id`).
+- `logger.TraceIDField` — JSON field name used in logs (`trace_id`).
+
 Estrutura:
 - `logger.go` — implementação pública do logger no pacote `logger`.
 - `internal/` — (opcional) helpers privados.
@@ -81,6 +87,7 @@ package main
 import (
     "net/http"
     "os"
+    "errors"
 
     logger "github.com/totvs/go-sdk/log"
 )
@@ -115,7 +122,7 @@ Injecting logger into context (facade)
 
 ```go
 // create a facade and store it in the context so library code can use it
-lg := logger.NewFacade(os.Stdout, zerolog.DebugLevel)
+lg := logger.NewFacade(os.Stdout, logger.DebugLevel)
 ctx := logger.ContextWithLogger(context.Background(), lg)
 
 // later, library code extracts a facade from the context and uses it
@@ -128,9 +135,23 @@ f3.Info("request processed")
 
 // Error logging examples
 f.Error("operation failed", nil) // simple errorless message
-f.Error("operation failed", errors.New("boom")) // include an error
-f.Errf("failed to %s", errors.New("boom"), "start") // formatted message with error
-f.Errorw("failed to start", errors.New("boom"), map[string]interface{}{"service": "orders"}) // error + fields
+// include an error
+err := errors.New("boom")
+f.Error("operation failed", err)
+f.Errf("failed to %s", err, "start") // formatted message with error
+f.Errorw("failed to start", err, map[string]interface{}{"service": "orders"}) // error + fields
+```
+
+Handler helper
+
+```go
+func handler(w http.ResponseWriter, r *http.Request) {
+    lg, logged := logger.GetLoggerFromRequest(r)
+    if !logged {
+        lg.Info("handler received request")
+    }
+    // handler logic
+}
 ```
 
 <!-- exemplo executável removido -->

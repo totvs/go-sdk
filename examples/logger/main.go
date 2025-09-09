@@ -33,10 +33,12 @@ func main() {
 	// HTTP server with middleware
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if lf, ok := logger.LoggerFromContext(r.Context()); ok {
-			lf.Info("fazendo alguma coisa no handler")
+		lf, logged := logger.GetLoggerFromRequest(r)
+		if !logged {
+			// middleware didn't emit the request-level log; handler can do it
+			lf.Info("handler received request")
 		}
-
+		// do handler work
 		w.Write([]byte("ok"))
 	})
 

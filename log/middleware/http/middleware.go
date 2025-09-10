@@ -64,7 +64,7 @@ func HTTPMiddlewareWithLogger(base log.LoggerFacade) func(http.Handler) http.Han
 
 // HTTPMiddleware is a convenience wrapper that uses the default facade logger.
 func HTTPMiddleware(next http.Handler) http.Handler {
-	return HTTPMiddlewareWithLogger(log.NewDefaultFacade())(next)
+	return HTTPMiddlewareWithLogger(log.NewDefaultLog())(next)
 }
 
 // GetLoggerFromRequest is a convenience helper for HTTP handlers.

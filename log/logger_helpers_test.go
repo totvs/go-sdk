@@ -14,7 +14,7 @@ import (
 
 func TestWithFieldAddsSingleField(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := logger.NewFacade(buf, logger.DebugLevel)
+	f := logger.NewLog(buf, logger.DebugLevel)
 
 	lg := f.WithField("service", "orders")
 	lg.Info("started")
@@ -39,7 +39,7 @@ func TestWithFieldAddsSingleField(t *testing.T) {
 
 func TestHTTPMiddlewareGeneratesTraceIfMissing(t *testing.T) {
 	buf := &bytes.Buffer{}
-	baseF := logger.NewFacade(buf, logger.DebugLevel)
+	baseF := logger.NewLog(buf, logger.DebugLevel)
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -65,7 +65,7 @@ func TestHTTPMiddlewareGeneratesTraceIfMissing(t *testing.T) {
 
 func TestHTTPMiddlewarePreservesProvidedTrace(t *testing.T) {
 	buf := &bytes.Buffer{}
-	baseF := logger.NewFacade(buf, logger.DebugLevel)
+	baseF := logger.NewLog(buf, logger.DebugLevel)
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -91,7 +91,7 @@ func TestHTTPMiddlewarePreservesProvidedTrace(t *testing.T) {
 
 func TestHTTPMiddlewareInjectsLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	baseF := logger.NewFacade(buf, logger.DebugLevel)
+	baseF := logger.NewLog(buf, logger.DebugLevel)
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// handler should avoid duplicating the middleware log when middleware already logged

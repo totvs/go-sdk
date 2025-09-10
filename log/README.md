@@ -30,7 +30,12 @@ import (
 
 func main() {
     // use the facade API (decoupled from the concrete implementation)
-    f := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    // create a logger with explicit writer and level:
+    f := logger.NewLog(os.Stdout, logger.InfoLevel)
+
+    // or use the convenience constructor that uses `os.Stdout` and
+    // reads the level from the `LOG_LEVEL` environment variable:
+    // f := logger.NewDefaultLog()
     // For per-request trace ids prefer using the middleware which injects the trace into the logger.
     f.Info("aplicação iniciada")
 
@@ -93,7 +98,7 @@ import (
 )
 
 func main() {
-    l := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    l := logger.NewLog(os.Stdout, logger.InfoLevel)
 
     mux := http.NewServeMux()
     mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
@@ -122,11 +127,14 @@ Injecting logger into context (facade)
 
 ```go
 // create a facade and store it in the context so library code can use it
-lg := logger.NewFacade(os.Stdout, logger.DebugLevel)
+// using explicit level/writer:
+lg := logger.NewLog(os.Stdout, logger.DebugLevel)
+// or use the default constructor which writes to stdout and respects LOG_LEVEL:
+// lg := logger.NewDefaultLog()
 ctx := logger.ContextWithLogger(context.Background(), lg)
 
 // later, library code extracts a facade from the context and uses it
-f := logger.FromContextFacade(ctx)
+f := logger.FromContext(ctx)
 f.Info("using injected logger via facade")
 
 // adding multiple fields conveniently via the facade
@@ -157,5 +165,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 <!-- exemplo executável removido -->
 
 Dicas:
-- Ajuste o nível de log via `LOG_LEVEL` (ex.: `DEBUG`, `INFO`).
+- Ajuste o nível de log via `LOG_LEVEL`. Valores aceitos (case-insensitive): `DEBUG`, `INFO` (padrão), `WARN` / `WARNING`, `ERROR`.
+- Exemplo: `export LOG_LEVEL=DEBUG` antes de iniciar a aplicação.
 - Publique tags para versionamento do repositório: `git tag v0.1.0` e `git push origin v0.1.0`.

@@ -102,17 +102,19 @@ func (z zerologAdapter) Errorw(msg string, err error, fields map[string]interfac
 
 // NewFacade cria uma nova instância de LoggerFacade baseada no zerolog
 // existente. Use esta função para obter uma instância específica.
-func NewFacade(w io.Writer, level Level) LoggerFacade { return zerologAdapter{l: newLogger(w, level)} }
+// NewLog creates a new LoggerFacade instance writing to `w` at the provided level.
+func NewLog(w io.Writer, level Level) LoggerFacade { return zerologAdapter{l: newLogger(w, level)} }
 
-// NewDefaultFacade creates a LoggerFacade with default settings (stdout/LOG_LEVEL).
-func NewDefaultFacade() LoggerFacade { return zerologAdapter{l: newDefaultLogger()} }
+// NewDefaultLog creates a LoggerFacade with default settings (writes to stdout and
+// reads level from the `LOG_LEVEL` environment variable).
+func NewDefaultLog() LoggerFacade { return zerologAdapter{l: newDefaultLogger()} }
 
 // globalLogger stores the package-level logger in an atomic.Value to make
 // reads/writes safe for concurrent access. Use SetGlobal/GetGlobal to access.
 var globalLogger atomic.Value
 
 func init() {
-	globalLogger.Store(NewDefaultFacade())
+	globalLogger.Store(NewDefaultLog())
 }
 
 // SetGlobal replaces the package-level global logger.
@@ -126,7 +128,7 @@ func GetGlobal() LoggerFacade {
 		}
 	}
 	// fallback: store and return a default facade
-	def := NewDefaultFacade()
+	def := NewDefaultLog()
 	globalLogger.Store(def)
 	return def
 }
@@ -170,8 +172,8 @@ func LoggerFromContext(ctx context.Context) (LoggerFacade, bool) {
 	return nil, false
 }
 
-// FromContextFacade returns a LoggerFacade extracted from the context if present; otherwise returns the global logger.
-func FromContextFacade(ctx context.Context) LoggerFacade {
+// FromContext returns a LoggerFacade extracted from the context if present; otherwise returns the global logger.
+func FromContext(ctx context.Context) LoggerFacade {
 	if lf, ok := LoggerFromContext(ctx); ok {
 		return lf
 	}

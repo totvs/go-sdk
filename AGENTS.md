@@ -20,8 +20,8 @@ Development guidelines
   - Prefer the `LoggerFacade` abstraction (in `log/facade.go`) for new code that emits logs to keep callers decoupled
     from a specific implementation (`zerolog`).
   - Quick API summary:
-    - Constructors: `NewFacade(w, level) -> LoggerFacade`, `NewDefaultFacade()`.
-  - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContextFacade`.
+    - Constructors: `NewLog(w, level) -> LoggerFacade`, `NewDefaultLog()`.
+  - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContext`.
     - Field helpers: `WithField`, `WithFields` (available on `LoggerFacade`).
     - Error logging: `LoggerFacade.Error(msg string, err error)` accepts a (possibly nil) `error` to include as the `error` field in the log payload.
       Additionally the facade provides:

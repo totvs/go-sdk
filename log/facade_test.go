@@ -11,7 +11,7 @@ import (
 
 func TestFacadeBasicWrites(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := NewLog(buf, DebugLevel)
 	f.Info("hello-facade")
 
 	out := buf.String()
@@ -22,7 +22,7 @@ func TestFacadeBasicWrites(t *testing.T) {
 
 func TestFacadeWithFieldAndFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := NewLog(buf, DebugLevel)
 
 	f2 := f.WithField("service", "orders")
 	f3 := f2.WithFields(map[string]interface{}{"version": 3})
@@ -42,7 +42,7 @@ func TestFacadeWithFieldAndFields(t *testing.T) {
 
 func TestGlobalFacadeAndFromContext(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := NewLog(buf, DebugLevel)
 
 	// set global and use package shortcut
 	SetGlobal(f)
@@ -53,9 +53,9 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 
 	// injecting a facade into context and extracting it
 	buf.Reset()
-	fctx := NewFacade(buf, DebugLevel)
+	fctx := NewLog(buf, DebugLevel)
 	ctx := ContextWithLogger(context.Background(), fctx)
-	f2 := FromContextFacade(ctx)
+	f2 := FromContext(ctx)
 	f2.Info("from-ctx")
 	if !strings.Contains(buf.String(), "from-ctx") {
 		t.Fatalf("expected from-ctx in output, got: %s", buf.String())
@@ -64,7 +64,7 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 
 func TestErrorWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
 	f.Error("failed action", err)
 
@@ -84,7 +84,7 @@ func TestErrorWithError(t *testing.T) {
 
 func TestErrorwWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
 	f.Errorw("failed action", err, map[string]interface{}{"service": "orders"})
 
@@ -107,7 +107,7 @@ func TestErrorwWithFields(t *testing.T) {
 
 func TestErrfWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewFacade(buf, DebugLevel)
+	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
 	f.Errf("failed %s", err, "start")
 

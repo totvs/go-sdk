@@ -7,7 +7,7 @@ Projeto base (SDK) em Go que serve como blueprint para outros projetos da TOTVS.
 - Este repositório fornece helpers, guias e exemplos — não implementa operators nem addons prontos.
 
 ### Principais características
-- Logging: `zerolog` em formato JSON com suporte a `trace_id` para rastreabilidade.
+- Logging: formato JSON com suporte a `trace_id` para rastreabilidade.
 - Estrutura modular: os utilitários ficam em pastas como `log/`.
 
 ### Estrutura do repositório
@@ -48,8 +48,12 @@ import (
 )
 
 func main() {
-    // use the facade API (decoupled from the concrete implementation)
-    f := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    // use the API to create a logger instance
+    f := logger.NewLog(os.Stdout, logger.InfoLevel)
+
+    // Alternatively use the default constructor which writes to stdout and
+    // reads the log level from the `LOG_LEVEL` environment variable:
+    // f := logger.NewDefaultLog()
     // For per-request trace ids prefer using the HTTP middleware which
     // will inject the trace id from the request into the logger context.
     f.Info("aplicação iniciada")
@@ -59,6 +63,11 @@ func main() {
     logger.Info("usando logger global")
 }
 ```
+
+Configuração via ambiente:
+
+- Ajuste o nível de log via `LOG_LEVEL`. Valores aceitos (case-insensitive): `DEBUG`, `INFO` (padrão), `WARN` / `WARNING`, `ERROR`.
+- Exemplo: `export LOG_LEVEL=DEBUG` antes de iniciar a aplicação.
 
 Middleware HTTP (exemplo rápido)
 
@@ -93,7 +102,7 @@ go test ./...
 
 ## Exemplos rápidos
 
-Uso básico — sem precisar importar `zerolog`:
+Uso básico:
 
 ```go
 import (
@@ -104,12 +113,10 @@ import (
 )
 
 func main() {
-    // criando uma façade (abstração) o código consumidor não precisa depender
-    // diretamente de zerolog e pode usar a mesma API independente da implementação.
-    f := logger.NewFacade(os.Stdout, logger.InfoLevel)
+    // criando uma instância de logger (a implementação concreta é ocultada)
+    f := logger.NewLog(os.Stdout, logger.InfoLevel)
 
     // per-request trace ids are normally added by the HTTP middleware;
-    // create the facade and use it for logging in your application.
     f.Info("aplicação iniciada")
 
     // opcional: definir como logger global para usar atalhos como `logger.Info(...)`
@@ -124,7 +131,7 @@ func main() {
 Adicionar campos e usar helpers:
 
 ```go
-f := logger.NewFacade(os.Stdout, logger.DebugLevel)
+f := logger.NewLog(os.Stdout, logger.DebugLevel)
 f = f.WithField("service", "orders")
 f = f.WithFields(map[string]interface{}{"version": 3, "region": "eu"})
 f.Debug("config carregada")
@@ -142,7 +149,7 @@ mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
 
 // or with a custom logger
-// myLogger := logger.NewFacade(os.Stdout, logger.DebugLevel)
+// myLogger := logger.NewLog(os.Stdout, logger.DebugLevel)
 // http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(myLogger)(mux))
 ```
 

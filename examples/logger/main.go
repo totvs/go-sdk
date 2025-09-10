@@ -10,8 +10,8 @@ import (
 )
 
 func main() {
-	// usando a fachada (abstração)
-	myAppInstanceLogger1 := logger.NewFacade(os.Stdout, logger.InfoLevel)
+	// usando a fachada (abstração) — usa valores padrão (escreve em stdout e lê LOG_LEVEL)
+	myAppInstanceLogger1 := logger.NewDefaultLog()
 	ctx1 := logger.ContextWithTrace(context.Background(), "trace-1234")
 	myAppInstanceLogger1 = myAppInstanceLogger1.WithTraceFromContext(ctx1)
 	myAppInstanceLogger1.Info("application started (facade)")
@@ -21,9 +21,9 @@ func main() {
 	logger.Info("using global logger")
 
 	// ainda é possível injetar uma facade no contexto e extrair ela depois
-	myAppInstanceLogger2 := logger.NewFacade(os.Stdout, logger.DebugLevel)
+	myAppInstanceLogger2 := logger.NewLog(os.Stdout, logger.DebugLevel)
 	ctx2 := logger.ContextWithLogger(context.Background(), myAppInstanceLogger2)
-	myAppInstanceLogger3 := logger.FromContextFacade(ctx2)
+	myAppInstanceLogger3 := logger.FromContext(ctx2)
 	myAppInstanceLogger3.Info("using injected logger via facade")
 
 	// adicionar campos via facade
@@ -31,8 +31,8 @@ func main() {
 	f3.Info("request processed1")
 	f3.Info("request processed2")
 
-	// usando a fachada (abstração)
-	myAppInstanceLogger4 := logger.NewFacade(os.Stdout, logger.InfoLevel)
+	// usando a fachada (abstração) — usar a fachada padrão que respeita `LOG_LEVEL`
+	myAppInstanceLogger4 := logger.NewDefaultLog()
 
 	// HTTP server with middleware
 	mux := http.NewServeMux()

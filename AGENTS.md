@@ -23,7 +23,7 @@ Development guidelines
     - Constructors: `NewLog(w, level) -> LoggerFacade`, `NewDefaultLog()`.
   - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContext`.
     - Field helpers: `WithField`, `WithFields` (available on `LoggerFacade`).
-    - Error logging: `LoggerFacade.Error(msg string, err error)` accepts a (possibly nil) `error` to include as the `error` field in the log payload.
+    - Error logging: `LoggerFacade.Error(err error, msg string)` accepts a (possibly nil) `error` to include as the `error` field in the log payload. The `error` parameter is first to make inclusion explicit.
       Additionally the facade provides:
       - `Errf(format string, err error, args ...interface{})` — formatted message with error.
       - `Errorw(msg string, err error, fields map[string]interface{})` — message + error + structured fields.

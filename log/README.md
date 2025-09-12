@@ -142,10 +142,10 @@ f3 := f.WithFields(map[string]interface{}{"service": "orders", "version": 3})
 f3.Info("request processed")
 
 // Error logging examples
-f.Error("operation failed", nil) // simple errorless message
+f.Error(nil, "operation failed") // simple errorless message
 // include an error
 err := errors.New("boom")
-f.Error("operation failed", err)
+f.Error(err, "operation failed")
 f.Errf("failed to %s", err, "start") // formatted message with error
 f.Errorw("failed to start", err, map[string]interface{}{"service": "orders"}) // error + fields
 ```

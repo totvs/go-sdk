@@ -66,7 +66,7 @@ func TestErrorWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
-	f.Error("failed action", err)
+	f.Error(err, "failed action")
 
 	s := buf.String()
 	if !strings.Contains(s, "boom") {

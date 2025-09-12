@@ -28,8 +28,9 @@ type LoggerFacade interface {
 	Info(msg string)
 	Debug(msg string)
 	Warn(msg string)
-	// Error logs a message and accepts an optional error (pass nil if none).
-	Error(msg string, err error)
+	// Error logs an optional error and a message (pass nil for the error if none).
+	// The error is the first parameter to make it explicit when including errors in logs.
+	Error(err error, msg string)
 
 	Infof(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
@@ -60,7 +61,7 @@ func (z zerologAdapter) WithTraceFromContext(ctx context.Context) LoggerFacade {
 func (z zerologAdapter) Info(msg string)  { z.l.InfoMsg(msg) }
 func (z zerologAdapter) Debug(msg string) { z.l.DebugMsg(msg) }
 func (z zerologAdapter) Warn(msg string)  { z.l.WarnMsg(msg) }
-func (z zerologAdapter) Error(msg string, err error) {
+func (z zerologAdapter) Error(err error, msg string) {
 	if err != nil {
 		z.l.l.Error().Err(err).Msg(msg)
 		return
@@ -78,7 +79,7 @@ func (z zerologAdapter) Warnf(format string, args ...interface{}) {
 	z.Warn(fmt.Sprintf(format, args...))
 }
 func (z zerologAdapter) Errorf(format string, args ...interface{}) {
-	z.Error(fmt.Sprintf(format, args...), nil)
+	z.Error(nil, fmt.Sprintf(format, args...))
 }
 
 func (z zerologAdapter) Errf(format string, err error, args ...interface{}) {
@@ -88,7 +89,7 @@ func (z zerologAdapter) Errf(format string, err error, args ...interface{}) {
 func (z zerologAdapter) Errorw(msg string, err error, fields map[string]interface{}) {
 	if fields == nil {
 		// simple case: just log with error
-		z.Error(msg, err)
+		z.Error(err, msg)
 		return
 	}
 	// apply fields then log error or message
@@ -137,7 +138,7 @@ func GetGlobal() LoggerFacade {
 func Info(msg string)             { GetGlobal().Info(msg) }
 func Debug(msg string)            { GetGlobal().Debug(msg) }
 func Warn(msg string)             { GetGlobal().Warn(msg) }
-func Error(msg string, err error) { GetGlobal().Error(msg, err) }
+func Error(err error, msg string) { GetGlobal().Error(err, msg) }
 
 func Infof(format string, args ...interface{})           { GetGlobal().Infof(format, args...) }
 func Debugf(format string, args ...interface{})          { GetGlobal().Debugf(format, args...) }

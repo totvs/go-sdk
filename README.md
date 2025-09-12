@@ -123,7 +123,7 @@ func main() {
     logger.SetGlobal(f)
     logger.Info("mensagem via logger global")
 
-    // note: error logging uses an explicit error parameter: `f.Error("failed to start", err)`
+    // note: error logging uses an explicit error parameter: `f.Error(err, "failed to start")`
     // there are also helpers for formatted+error and error+fields: `f.Errf(format, err, args...)` and `f.Errorw(msg, err, fields)`
 }
 ```

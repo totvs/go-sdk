@@ -2,7 +2,10 @@ module github.com/totvs/go-sdk
 
 go 1.25
 
-require github.com/rs/zerolog v1.29.1
+require (
+	github.com/go-logr/logr v1.4.3
+	github.com/rs/zerolog v1.29.1
+)
 
 require (
 	github.com/mattn/go-colorable v0.1.12 // indirect

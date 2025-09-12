@@ -1,89 +1,162 @@
 # Logging (log)
 
-Este módulo fornece um utilitário de logging baseado em `zerolog`, com saída em JSON e suporte a `trace_id`.
+Este módulo fornece uma fachada de logging (abstração) com implementação
+baseada em `zerolog`. Os consumidores usam a interface pública do pacote
+(`LoggerFacade`) sem depender diretamente de `zerolog`.
 
-Constants
+## Constantes públicas
 
-- `logger.TraceIDHeader` — header name used for trace id (`X-Request-Id`).
-- `logger.TraceIDCorrelationHeader` — alternate header name (`X-Correlation-Id`).
-- `logger.TraceIDField` — JSON field name used in logs (`trace_id`).
+- `TraceIDHeader` — nome do header HTTP para trace id (`X-Request-Id`).
+- `TraceIDCorrelationHeader` — nome alternativo para correlação (`X-Correlation-Id`).
+- `TraceIDField` — nome do campo JSON adicionado aos logs (`trace_id`).
 
-Estrutura:
-- `logger.go` — implementação pública do logger no pacote `log`.
-- `internal/` — (opcional) helpers privados.
+## Estrutura
 
+- `logger.go` — implementação concreta (interno) baseada em `zerolog`.
+- `facade.go` — a fachada pública `LoggerFacade` e helpers de contexto.
+- `logr_adapter.go` — adaptador para `logr` (usado por `controller-runtime`).
+- `middleware/` — helpers e middleware HTTP (ex.: injeção de trace id).
 
-Como usar:
+## Como usar
 
-1. No repositório que consome o pacote, adicione a dependência:
-   `go get github.com/totvs/go-sdk@v0.0.0` (ou use `replace github.com/totvs/go-sdk => /caminho/para/repositorio` localmente durante desenvolvimento)
+1. Adicione a dependência no seu módulo (ou use `replace` localmente durante o desenvolvimento).
 
-2. Exemplo de uso básico:
+2. Use a fachada pública para emitir logs sem conhecer a implementação concreta:
 
 ```go
 import (
-    "context"
     "os"
-
     logger "github.com/totvs/go-sdk/log"
 )
 
 func main() {
-    // use the facade API (decoupled from the concrete implementation)
-    // create a logger with explicit writer and level:
-    f := logger.NewLog(os.Stdout, logger.InfoLevel)
+    // cria uma fachada que escreve em stdout com nível Info
+    lg := logger.NewLog(os.Stdout, logger.InfoLevel)
 
-    // or use the convenience constructor that uses `os.Stdout` and
-    // reads the level from the `LOG_LEVEL` environment variable:
-    // f := logger.NewDefaultLog()
-    // For per-request trace ids prefer using the middleware which injects the trace into the logger.
-    f.Info("aplicação iniciada")
+    // registra como logger global (opcional)
+    logger.SetGlobal(lg)
 
-    // definir logger global para usar atalhos do pacote
-    logger.SetGlobal(f)
-    logger.Info("mensagem via logger global")
+    // atalhos de pacote usam o logger global
+    logger.Info("aplicação iniciada")
 }
 ```
 
-Novos helpers e middleware
+### API rápida
 
-- `WithField(key, value)` — adiciona um único campo ao logger de forma conveniente.
-- `WithFields(map[string]interface{})` — método equivalente à função de pacote para adicionar múltiplos campos.
--- `Info`, `Debug`, `Warn`, `Error` on the facade — helpers that emit a simple message (`f.Info("...")`).
+- Construtores: `NewLog(w io.Writer, level Level) LoggerFacade`, `NewDefaultLog()`.
+- Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger`, `LoggerFromContext`, `FromContext`.
+- Fields: `WithField`, `WithFields`.
+- Erros: `Error(err, msg)`, `Errf(format, err, ...)`, `Errorw(msg, err, fields)`.
+- Globals: `SetGlobal`, `GetGlobal` e atalhos `logger.Info/...`.
 
-Middleware HTTP
+## Novos helpers e middleware
 
-`HTTPMiddlewareWithLogger(base LoggerFacade)` accepts a logger facade and will generate a secure `trace id` when
-the client does not provide `X-Request-Id` or `X-Correlation-Id`.
+- `WithField(key, value)` — adiciona um campo ao logger (encadeável).
+- `WithFields(map[string]interface{})` — adiciona múltiplos campos.
+- Middlewares HTTP fornecem geração/propagação de `trace_id` e injeção do logger no contexto.
 
-Behavior
+## Middleware HTTP
 
-- The middleware inserts the trace id into the request context via `ContextWithTrace`.
-- The middleware adds `trace_id` to the emitted request-level log entry.
-- The middleware adds the `X-Request-Id` header to the response when absent (default behavior).
+O middleware disponível aceita uma `LoggerFacade` e gera um `trace id` seguro
+quando o cliente não fornece `X-Request-Id` ou `X-Correlation-Id`.
 
-Configuration
+Comportamento principal:
 
-The middleware is configurable via `MiddlewareOptions`:
+- Insere o `trace_id` no contexto com `ContextWithTrace`.
+- Adiciona `trace_id` ao log emitido no nível de request.
+- Define o header `X-Request-Id` na resposta quando ausente.
 
-- `LogRequest bool` — when true the middleware emits a request-level log (default: true).
-- `InjectLogger bool` — when true the middleware injects the facade logger into the request context so handlers can reuse it (default: true).
-- `AddTraceHeader bool` — when true the middleware sets `X-Request-Id` on the response when absent (default: true).
+Configuração via `MiddlewareOptions`:
 
-Use `HTTPMiddlewareWithOptions(base, opts)` to customize behavior. The convenience
-`HTTPMiddlewareWithLogger(base)` uses sensible defaults (all `true`).
+- `LogRequest bool` — emitir log de request (padrão: true).
+- `InjectLogger bool` — injetar a fachada no contexto (padrão: true).
+- `AddTraceHeader bool` — adicionar `X-Request-Id` na resposta (padrão: true).
 
-Example: disable request logging but still inject the logger
+Exemplo de uso:
 
 ```go
-opts := middleware.MiddlewareOptions{LogRequest: false, InjectLogger: true, AddTraceHeader: true}
+opts := middleware.MiddlewareOptions{
+    LogRequest:    false,
+    InjectLogger:  true,
+    AddTraceHeader: true,
+}
 http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithOptions(myLogger, opts)(mux))
 ```
 
-Note: the middleware will mark the request context when it already logged the request. Handlers that also log
-should check `logger.LoggedFromContext(r.Context())` to avoid duplicating the same request-level message.
+Nota: o middleware marca o contexto quando já emitiu o log de request. Handlers
+que também logam devem checar `logger.LoggedFromContext(r.Context())` para
+evitar duplicação.
 
-Exemplo completo e saída esperada
+## Adapters
+
+Para integrar a fachada com bibliotecas que exigem uma API diferente,
+existem adaptadores dentro do pacote. Atualmente há um adaptador para
+`logr` (usado por `controller-runtime`).
+
+- Arquivo: `log/logr_adapter.go`.
+- Principais helpers:
+  - `log.NewLogrAdapter(l LoggerFacade) logr.Logger` — cria um `logr.Logger` que delega para `l`.
+  - `log.NewGlobalLogr()` — atalho que usa `log.GetGlobal()`.
+
+Exemplo (usar com controller-runtime):
+
+```go
+import (
+    "os"
+
+    logger "github.com/totvs/go-sdk/log"
+    ctrl "sigs.k8s.io/controller-runtime"
+)
+
+func main() {
+    logger.SetGlobal(logger.NewLog(os.Stdout, logger.InfoLevel))
+
+    // converte a LoggerFacade em logr.Logger para o controller-runtime
+    ctrl.SetLogger(logger.NewLogrAdapter(logger.GetGlobal()))
+
+    // iniciar manager, controllers, etc.
+}
+```
+
+Notas sobre o adaptador `logr`:
+
+- Mapeamento de verbosidade: `V(0)` → `Info`, `V(n>0)` → `Debug`.
+- `Error` delega para `Errorw` quando existem campos adicionais.
+- `Enabled()` do sink retorna `true` (o filtro final fica a cargo do logger subjacente).
+
+## Inserindo o logger no contexto (facade)
+
+```go
+lg := logger.NewLog(os.Stdout, logger.DebugLevel)
+ctx := logger.ContextWithLogger(context.Background(), lg)
+
+f := logger.FromContext(ctx)
+f.Info("using injected logger via facade")
+
+f3 := f.WithFields(map[string]interface{}{"service": "orders", "version": 3})
+f3.Info("request processed")
+
+err := errors.New("boom")
+f.Error(err, "operation failed")
+f.Errf("failed to %s", err, "start")
+f.Errorw("failed to start", err, map[string]interface{}{"service": "orders"})
+```
+
+## Handler helper
+
+```go
+func handler(w http.ResponseWriter, r *http.Request) {
+    lg, logged := middleware.GetLoggerFromRequest(r)
+    if !logged {
+        lg.Info("handler received request")
+    }
+    // lógica do handler
+}
+```
+
+## Exemplo completo e saída esperada
+
+Exemplo simplificado de servidor HTTP com middleware que gera `trace_id`:
 
 ```go
 package main
@@ -91,7 +164,6 @@ package main
 import (
     "net/http"
     "os"
-    "errors"
 
     logger "github.com/totvs/go-sdk/log"
     middleware "github.com/totvs/go-sdk/log/middleware/http"
@@ -105,12 +177,11 @@ func main() {
         w.Write([]byte("pong"))
     })
 
-    // start server with middleware (will generate trace id if missing)
     http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(l)(mux))
 }
 ```
 
-Uma chamada GET para `/ping` sem `X-Request-Id` pode gerar uma linha de log JSON parecida com:
+Uma chamada GET para `/ping` sem `X-Request-Id` pode gerar uma linha JSON como:
 
 ```json
 {
@@ -123,48 +194,8 @@ Uma chamada GET para `/ping` sem `X-Request-Id` pode gerar uma linha de log JSON
 }
 ```
 
-Injecting logger into context (facade)
+## Dicas
 
-```go
-// create a facade and store it in the context so library code can use it
-// using explicit level/writer:
-lg := logger.NewLog(os.Stdout, logger.DebugLevel)
-// or use the default constructor which writes to stdout and respects LOG_LEVEL:
-// lg := logger.NewDefaultLog()
-ctx := logger.ContextWithLogger(context.Background(), lg)
-
-// later, library code extracts a facade from the context and uses it
-f := logger.FromContext(ctx)
-f.Info("using injected logger via facade")
-
-// adding multiple fields conveniently via the facade
-f3 := f.WithFields(map[string]interface{}{"service": "orders", "version": 3})
-f3.Info("request processed")
-
-// Error logging examples
-f.Error(nil, "operation failed") // simple errorless message
-// include an error
-err := errors.New("boom")
-f.Error(err, "operation failed")
-f.Errf("failed to %s", err, "start") // formatted message with error
-f.Errorw("failed to start", err, map[string]interface{}{"service": "orders"}) // error + fields
-```
-
-Handler helper
-
-```go
-func handler(w http.ResponseWriter, r *http.Request) {
-    lg, logged := middleware.GetLoggerFromRequest(r)
-    if !logged {
-        lg.Info("handler received request")
-    }
-    // handler logic
-}
-```
-
-<!-- exemplo executável removido -->
-
-Dicas:
 - Ajuste o nível de log via `LOG_LEVEL`. Valores aceitos (case-insensitive): `DEBUG`, `INFO` (padrão), `WARN` / `WARNING`, `ERROR`.
-- Exemplo: `export LOG_LEVEL=DEBUG` antes de iniciar a aplicação.
-- Publique tags para versionamento do repositório: `git tag v0.1.0` e `git push origin v0.1.0`.
+- Para builds locais com módulo substituído, use `replace` no `go.mod`.
+

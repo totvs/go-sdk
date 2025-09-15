@@ -118,6 +118,61 @@ func main() {
 }
 ```
 
+### Integração com klog / component-base logs
+
+Você pode redirecionar as chamadas de `klog` para a fachada deste pacote
+convertendo a `LoggerFacade` para um `logr.Logger` e registrando-o em `klog`.
+Exemplo:
+
+```go
+import (
+    "github.com/totvs/go-sdk/log"
+    "k8s.io/klog/v2"
+)
+
+// liga o klog ao logger global do pacote
+log.InstallGlobalKlog()
+
+// ou explicitamente com uma fachada criada
+lg := log.NewLog(os.Stdout, log.InfoLevel)
+log.InstallKlogLogger(lg)
+
+// quando usar component-base/logs, chame logs.InitLogs() conforme recomendado
+// pelo Kubernetes e chame log.InstallGlobalKlog() durante a inicialização.
+```
+
+#### Helper: `InstallKlogWithComponentBase`
+
+O helper `InstallKlogWithComponentBase` inicializa o subsystem de logs do
+`k8s.io/component-base/logs` e instala a `LoggerFacade` em `klog`. Ele
+devolve uma função de cleanup (que chama `logs.FlushLogs`) que deve ser
+invocada no final do `main` (por exemplo via `defer`).
+
+Exemplo:
+
+```go
+package main
+
+import (
+    "flag"
+    "os"
+
+    logger "github.com/totvs/go-sdk/log"
+)
+
+func main() {
+    flag.Parse() // necessário antes de InitLogs
+
+    lg := logger.NewLog(os.Stdout, logger.InfoLevel)
+
+    // Instala o klog e obtém a função de cleanup (flush)
+    cleanup := logger.InstallKlogWithComponentBase(lg)
+    defer cleanup()
+
+    // restante da inicialização e execução
+}
+```
+
 Notas sobre o adaptador `logr`:
 
 - Mapeamento de verbosidade: `V(0)` → `Info`, `V(n>0)` → `Debug`.

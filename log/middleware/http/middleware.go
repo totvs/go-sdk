@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	log "github.com/totvs/go-sdk/log"
+	adapter "github.com/totvs/go-sdk/log/adapter"
 )
 
 // MiddlewareOptions customizes the behavior of the HTTP middleware.
@@ -40,7 +41,7 @@ func HTTPMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) fu
 			l2 := l.WithFields(map[string]interface{}{"method": r.Method, "path": r.URL.Path})
 
 			if opts.LogRequest {
-				l2.Info("http request received")
+				l2.Info().Msg("http request received")
 				ctx = log.ContextWithLogged(ctx)
 			}
 			if opts.InjectLogger {
@@ -64,7 +65,9 @@ func HTTPMiddlewareWithLogger(base log.LoggerFacade) func(http.Handler) http.Han
 
 // HTTPMiddleware is a convenience wrapper that uses the default facade logger.
 func HTTPMiddleware(next http.Handler) http.Handler {
-	return HTTPMiddlewareWithLogger(log.NewDefaultLog())(next)
+	// create a default adapter-backed logger at call time so callers can
+	// influence behavior via environment variables (e.g., LOG_LEVEL) in tests.
+	return HTTPMiddlewareWithLogger(adapter.NewDefaultLog())(next)
 }
 
 // GetLoggerFromRequest is a convenience helper for HTTP handlers.

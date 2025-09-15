@@ -56,11 +56,11 @@ func main() {
     // f := logger.NewDefaultLog()
     // For per-request trace ids prefer using the HTTP middleware which
     // will inject the trace id from the request into the logger context.
-    f.Info("aplicação iniciada")
+    f.Info().Msg("aplicação iniciada")
 
     // tornar este logger a instância global utilizada por atalhos do pacote
     logger.SetGlobal(f)
-    logger.Info("usando logger global")
+    logger.Info().Msg("usando logger global")
 }
 ```
 
@@ -117,14 +117,14 @@ func main() {
     f := logger.NewLog(os.Stdout, logger.InfoLevel)
 
     // per-request trace ids are normally added by the HTTP middleware;
-    f.Info("aplicação iniciada")
+    f.Info().Msg("aplicação iniciada")
 
-    // opcional: definir como logger global para usar atalhos como `logger.Info(...)`
+    // opcional: definir como logger global para usar atalhos como `logger.Info()`
     logger.SetGlobal(f)
-    logger.Info("mensagem via logger global")
+    logger.Info().Msg("mensagem via logger global")
 
-    // note: error logging uses an explicit error parameter: `f.Error(err, "failed to start")`
-    // there are also helpers for formatted+error and error+fields: `f.Errf(format, err, args...)` and `f.Errorw(msg, err, fields)`
+    // note: error logging uses an explicit error parameter via the fluent API:
+    // `f.Error(err).Msg("failed to start")` — you can chain fields before calling `Msg`.
 }
 ```
 
@@ -134,7 +134,7 @@ Adicionar campos e usar helpers:
 f := logger.NewLog(os.Stdout, logger.DebugLevel)
 f = f.WithField("service", "orders")
 f = f.WithFields(map[string]interface{}{"version": 3, "region": "eu"})
-f.Debug("config carregada")
+    f.Debug().Msg("config carregada")
 ```
 
 HTTP middleware (gera `trace id` automaticamente se estiver ausente):

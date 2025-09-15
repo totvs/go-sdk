@@ -12,7 +12,7 @@ import (
 func TestFacadeBasicWrites(t *testing.T) {
 	buf := &bytes.Buffer{}
 	f := NewLog(buf, DebugLevel)
-	f.Info("hello-facade")
+	f.Info().Msg("hello-facade")
 
 	out := buf.String()
 	if !strings.Contains(out, "hello-facade") {
@@ -26,7 +26,7 @@ func TestFacadeWithFieldAndFields(t *testing.T) {
 
 	f2 := f.WithField("service", "orders")
 	f3 := f2.WithFields(map[string]interface{}{"version": 3})
-	f3.Info("started")
+	f3.Info().Msg("started")
 
 	var m map[string]interface{}
 	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
@@ -46,7 +46,7 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 
 	// set global and use package shortcut
 	SetGlobal(f)
-	Info("via-global")
+	Info().Msg("via-global")
 	if !strings.Contains(buf.String(), "via-global") {
 		t.Fatalf("expected global message, got: %s", buf.String())
 	}
@@ -56,7 +56,7 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 	fctx := NewLog(buf, DebugLevel)
 	ctx := ContextWithLogger(context.Background(), fctx)
 	f2 := FromContext(ctx)
-	f2.Info("from-ctx")
+	f2.Info().Msg("from-ctx")
 	if !strings.Contains(buf.String(), "from-ctx") {
 		t.Fatalf("expected from-ctx in output, got: %s", buf.String())
 	}
@@ -66,7 +66,7 @@ func TestErrorWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
-	f.Error(err, "failed action")
+	f.Error(err).Msg("failed action")
 
 	s := buf.String()
 	if !strings.Contains(s, "boom") {
@@ -86,7 +86,7 @@ func TestErrorwWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
 	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
-	f.Errorw("failed action", err, map[string]interface{}{"service": "orders"})
+	f.WithFields(map[string]interface{}{"service": "orders"}).Error(err).Msg("failed action")
 
 	s := buf.String()
 	if !strings.Contains(s, "boom") {
@@ -109,7 +109,7 @@ func TestErrfWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	f := NewLog(buf, DebugLevel)
 	err := errors.New("boom")
-	f.Errf("failed %s", err, "start")
+	f.Error(err).Msgf("failed %s", "start")
 
 	s := buf.String()
 	if !strings.Contains(s, "boom") {

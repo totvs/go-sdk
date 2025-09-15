@@ -9,15 +9,16 @@ import (
 	"testing"
 
 	logger "github.com/totvs/go-sdk/log"
+	adapter "github.com/totvs/go-sdk/log/adapter"
 	middleware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
 func TestWithFieldAddsSingleField(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := logger.NewLog(buf, logger.DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 
 	lg := f.WithField("service", "orders")
-	lg.Info("started")
+	lg.Info().Msg("started")
 
 	out := buf.String()
 	if out == "" {
@@ -39,7 +40,7 @@ func TestWithFieldAddsSingleField(t *testing.T) {
 
 func TestHTTPMiddlewareGeneratesTraceIfMissing(t *testing.T) {
 	buf := &bytes.Buffer{}
-	baseF := logger.NewLog(buf, logger.DebugLevel)
+	baseF := adapter.NewLog(buf, logger.DebugLevel)
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -65,7 +66,7 @@ func TestHTTPMiddlewareGeneratesTraceIfMissing(t *testing.T) {
 
 func TestHTTPMiddlewarePreservesProvidedTrace(t *testing.T) {
 	buf := &bytes.Buffer{}
-	baseF := logger.NewLog(buf, logger.DebugLevel)
+	baseF := adapter.NewLog(buf, logger.DebugLevel)
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -91,13 +92,13 @@ func TestHTTPMiddlewarePreservesProvidedTrace(t *testing.T) {
 
 func TestHTTPMiddlewareInjectsLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	baseF := logger.NewLog(buf, logger.DebugLevel)
+	baseF := adapter.NewLog(buf, logger.DebugLevel)
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// handler should avoid duplicating the middleware log when middleware already logged
 		if !logger.LoggedFromContext(r.Context()) {
 			if lf, ok := logger.LoggerFromContext(r.Context()); ok {
-				lf.Info("handler-log")
+				lf.Info().Msg("handler-log")
 			}
 		}
 		w.Write([]byte("ok"))

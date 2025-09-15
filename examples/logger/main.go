@@ -6,49 +6,83 @@ import (
 	"os"
 
 	logger "github.com/totvs/go-sdk/log"
+	adapter "github.com/totvs/go-sdk/log/adapter"
 	middleware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
-func main() {
-	// usando a fachada (abstração) — usa valores padrão (escreve em stdout e lê LOG_LEVEL)
-	myAppInstanceLogger1 := logger.NewDefaultLog()
-	ctx1 := logger.ContextWithTrace(context.Background(), "trace-1234")
-	myAppInstanceLogger1 = myAppInstanceLogger1.WithTraceFromContext(ctx1)
-	myAppInstanceLogger1.Info("application started (facade)")
+// startAppLogger cria um logger de aplicação com trace e emite a mensagem de inicialização.
+func startAppLogger() {
+	l := adapter.NewDefaultLog()
+	ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
+	l = l.WithTraceFromContext(ctx)
+	l.Info().Msg("application started (facade)")
+}
 
-	// definir como logger global para usar atalhos do pacote
-	logger.SetGlobal(myAppInstanceLogger1)
-	logger.Info("using global logger")
+// setGlobalLogger registra o logger como global e escreve uma mensagem via atalhos do pacote.
+func setGlobalLogger() {
+	l := adapter.NewDefaultLog()
+	logger.SetGlobal(l)
+	logger.Info().Msg("using global logger")
+}
 
-	// ainda é possível injetar uma facade no contexto e extrair ela depois
-	myAppInstanceLogger2 := logger.NewLog(os.Stdout, logger.DebugLevel)
-	ctx2 := logger.ContextWithLogger(context.Background(), myAppInstanceLogger2)
-	myAppInstanceLogger3 := logger.FromContext(ctx2)
-	myAppInstanceLogger3.Info("using injected logger via facade")
+// injectedLoggerExample demonstra injeção/extracao de logger via contexto.
+func injectedLoggerExample() {
+	l := adapter.NewLog(os.Stdout, logger.DebugLevel)
+	ctx := logger.ContextWithLogger(context.Background(), l)
+	lg := logger.FromContext(ctx)
+	lg.Info().Msg("using injected logger via facade")
+}
 
-	// adicionar campos via facade
-	f3 := myAppInstanceLogger3.WithFields(map[string]interface{}{"service": "orders", "version": 3})
-	f3.Info("request processed1")
-	f3.Info("request processed2")
+// withFieldsExample adiciona campos e emite algumas mensagens de exemplo.
+func withFieldsExample() {
+	l := adapter.NewLog(os.Stdout, logger.InfoLevel)
+	f := l.WithFields(map[string]interface{}{"service": "orders", "version": 3})
+	f.Info().Msg("request processed1")
+	f.Info().Msg("request processed2")
+}
 
-	// usando a fachada (abstração) — usar a fachada padrão que respeita `LOG_LEVEL`
-	myAppInstanceLogger4 := logger.NewDefaultLog()
+// packageLevelFieldsExamples demonstra uso via logger global.
+func packageLevelFieldsExamples() {
+	l := adapter.NewDefaultLog()
+	logger.SetGlobal(l)
+	logger.GetGlobal().WithFields(map[string]interface{}{"app": "example", "uptime": "1m"}).Info().Msg("global infow example")
+	logger.GetGlobal().WithFields(map[string]interface{}{"detail": "verbose info"}).Debug().Msg("global debugw example")
+	logger.GetGlobal().WithFields(map[string]interface{}{"disk": "low"}).Warn().Msg("global warnw example")
+}
 
-	// HTTP server with middleware
+// chainedFluentExample demonstra o estilo encadeado (fluente).
+func chainedFluentExample() {
+	l := adapter.NewLog(os.Stdout, logger.DebugLevel)
+	l.Debug().Str("Scale", "833 cents").Float64("Interval", 833.09).Msg("Fibonacci is everywhere 1")
+	// também via helper de pacote
+	logger.Debug().Str("Scale", "833 cents").Float64("Interval", 833.09).Msg("Fibonacci is everywhere 2")
+}
+
+// httpServerExample inicia um servidor HTTP simples que usa o middleware de logging.
+func httpServerExample() {
+	appLogger := adapter.NewDefaultLog()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		lf, logged := middleware.GetLoggerFromRequest(r)
 		if !logged {
-			// middleware didn't emit the request-level log; handler can do it
-			lf.Info("handler received request")
+			lf.Info().Msg("handler received request")
 		}
-		// do handler work
 		w.Write([]byte("ok"))
 	})
 
-	// listen on :8080 (ctrl-c to stop) — pass the same app logger instance to the middleware
-	err := http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(myAppInstanceLogger4)(mux))
+	// listen on :8080 — passa o logger da aplicação para o middleware
+	err := http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(appLogger)(mux))
 	if err != nil {
-		myAppInstanceLogger1.Error(err, "failed to start server")
+		appLogger.Error(err).Msg("failed to start server")
 	}
+}
+
+func main() {
+	startAppLogger()
+	setGlobalLogger()
+	injectedLoggerExample()
+	withFieldsExample()
+	packageLevelFieldsExamples()
+	chainedFluentExample()
+	httpServerExample()
 }

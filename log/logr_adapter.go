@@ -33,10 +33,10 @@ func (r *logrSink) Info(level int, msg string, keysAndValues ...any) {
 		fields["logger"] = r.name
 	}
 	if level > 0 {
-		r.lf.WithFields(fields).Debug(msg)
+		r.lf.WithFields(fields).Debug().Msg(msg)
 		return
 	}
-	r.lf.WithFields(fields).Info(msg)
+	r.lf.WithFields(fields).Info().Msg(msg)
 }
 
 func (r *logrSink) Error(err error, msg string, keysAndValues ...any) {
@@ -46,10 +46,10 @@ func (r *logrSink) Error(err error, msg string, keysAndValues ...any) {
 		fields["logger"] = r.name
 	}
 	if len(fields) == 0 {
-		r.lf.Error(err, msg)
+		r.lf.Error(err).Msg(msg)
 		return
 	}
-	r.lf.Errorw(msg, err, fields)
+	r.lf.WithFields(fields).Error(err).Msg(msg)
 }
 
 func (r *logrSink) WithValues(keysAndValues ...any) logr.LogSink {

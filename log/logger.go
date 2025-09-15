@@ -3,12 +3,36 @@ package log
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"os"
 	"time"
 
 	"github.com/rs/zerolog"
 )
+
+// zerolog-backed implementation of the fluent Event interface declared in facade.go.
+type zerologEvent struct{ e *zerolog.Event }
+
+func newZerologEvent(e *zerolog.Event) LogEvent { return &zerologEvent{e: e} }
+
+func (z *zerologEvent) Str(k, v string) LogEvent             { z.e = z.e.Str(k, v); return z }
+func (z *zerologEvent) Int(k string, v int) LogEvent         { z.e = z.e.Int(k, v); return z }
+func (z *zerologEvent) Int64(k string, v int64) LogEvent     { z.e = z.e.Int64(k, v); return z }
+func (z *zerologEvent) Uint(k string, v uint) LogEvent       { z.e = z.e.Uint(k, v); return z }
+func (z *zerologEvent) Uint64(k string, v uint64) LogEvent   { z.e = z.e.Uint64(k, v); return z }
+func (z *zerologEvent) Bool(k string, v bool) LogEvent       { z.e = z.e.Bool(k, v); return z }
+func (z *zerologEvent) Float32(k string, v float32) LogEvent { z.e = z.e.Float32(k, v); return z }
+func (z *zerologEvent) Float64(k string, v float64) LogEvent { z.e = z.e.Float64(k, v); return z }
+func (z *zerologEvent) Interface(k string, v interface{}) LogEvent {
+	z.e = z.e.Interface(k, v)
+	return z
+}
+func (z *zerologEvent) Err(err error) LogEvent { z.e = z.e.Err(err); return z }
+func (z *zerologEvent) Msg(msg string)         { z.e.Msg(msg) }
+func (z *zerologEvent) Msgf(format string, args ...interface{}) {
+	z.e.Msg(fmt.Sprintf(format, args...))
+}
 
 type ctxKey string
 

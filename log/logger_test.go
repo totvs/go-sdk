@@ -12,12 +12,13 @@ import (
 	"testing"
 
 	logger "github.com/totvs/go-sdk/log"
+	adapter "github.com/totvs/go-sdk/log/adapter"
 	mware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
 func TestWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := logger.NewLog(buf, logger.DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 
 	fields := map[string]interface{}{
 		"str": "s",
@@ -29,7 +30,7 @@ func TestWithFields(t *testing.T) {
 	}
 
 	lg := f.WithFields(fields)
-	lg.Info("testfields")
+	lg.Info().Msg("testfields")
 
 	out := buf.String()
 	if out == "" {
@@ -58,7 +59,7 @@ func TestWithFields(t *testing.T) {
 
 func TestContextLogger(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := logger.NewLog(buf, logger.DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 
 	ctx := logger.ContextWithLogger(context.Background(), f)
 	if _, ok := logger.LoggerFromContext(ctx); !ok {
@@ -66,7 +67,7 @@ func TestContextLogger(t *testing.T) {
 	}
 
 	lg := logger.FromContext(ctx)
-	lg.Info("ctxmsg")
+	lg.Info().Msg("ctxmsg")
 
 	if !strings.Contains(buf.String(), "ctxmsg") {
 		t.Fatalf("expected ctxmsg in output, got: %s", buf.String())

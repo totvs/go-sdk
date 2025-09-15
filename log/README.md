@@ -36,8 +36,8 @@ func main() {
     // registra como logger global (opcional)
     logger.SetGlobal(lg)
 
-    // atalhos de pacote usam o logger global
-    logger.Info("aplicação iniciada")
+    // atalhos de pacote usam o logger global (via Event fluente)
+    logger.Info().Msg("aplicação iniciada")
 }
 ```
 
@@ -46,7 +46,7 @@ func main() {
 - Construtores: `NewLog(w io.Writer, level Level) LoggerFacade`, `NewDefaultLog()`.
 - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger`, `LoggerFromContext`, `FromContext`.
 - Fields: `WithField`, `WithFields`.
-- Erros: `Error(err, msg)`, `Errf(format, err, ...)`, `Errorw(msg, err, fields)`.
+- Erros: use a API fluente: `Error(err).Msg("message")` ou encadeie campos antes de chamar `Msg`.
 - Globals: `SetGlobal`, `GetGlobal` e atalhos `logger.Info/...`.
 
 ## Novos helpers e middleware
@@ -121,7 +121,7 @@ func main() {
 Notas sobre o adaptador `logr`:
 
 - Mapeamento de verbosidade: `V(0)` → `Info`, `V(n>0)` → `Debug`.
-- `Error` delega para `Errorw` quando existem campos adicionais.
+ - Use a API fluente: `Error(err).Msg(...)`; quando houver campos adicionais, encadeie `WithFields(...).Error(err).Msg(...)`.
 - `Enabled()` do sink retorna `true` (o filtro final fica a cargo do logger subjacente).
 
 ## Inserindo o logger no contexto (facade)
@@ -131,15 +131,15 @@ lg := logger.NewLog(os.Stdout, logger.DebugLevel)
 ctx := logger.ContextWithLogger(context.Background(), lg)
 
 f := logger.FromContext(ctx)
-f.Info("using injected logger via facade")
+f.Info().Msg("using injected logger via facade")
 
 f3 := f.WithFields(map[string]interface{}{"service": "orders", "version": 3})
-f3.Info("request processed")
+f3.Info().Msg("request processed")
 
 err := errors.New("boom")
-f.Error(err, "operation failed")
-f.Errf("failed to %s", err, "start")
-f.Errorw("failed to start", err, map[string]interface{}{"service": "orders"})
+f.Error(err).Msg("operation failed")
+f.Error(err).Msgf("failed to %s", "start")
+f.WithFields(map[string]interface{}{"service": "orders"}).Error(err).Msg("failed to start")
 ```
 
 ## Handler helper
@@ -148,7 +148,7 @@ f.Errorw("failed to start", err, map[string]interface{}{"service": "orders"})
 func handler(w http.ResponseWriter, r *http.Request) {
     lg, logged := middleware.GetLoggerFromRequest(r)
     if !logged {
-        lg.Info("handler received request")
+        lg.Info().Msg("handler received request")
     }
     // lógica do handler
 }
@@ -198,4 +198,3 @@ Uma chamada GET para `/ping` sem `X-Request-Id` pode gerar uma linha JSON como:
 
 - Ajuste o nível de log via `LOG_LEVEL`. Valores aceitos (case-insensitive): `DEBUG`, `INFO` (padrão), `WARN` / `WARNING`, `ERROR`.
 - Para builds locais com módulo substituído, use `replace` no `go.mod`.
-

@@ -7,6 +7,8 @@ TESTFLAGS ?=
 
 .PHONY: run-example
 
+# default log level for the example (can be overridden: `make run-example LOG_LEVEL=info`)
+LOG_LEVEL ?= DEBUG
 
 # Executa todos os testes
 test:
@@ -49,6 +51,7 @@ tidy:
 ## Target para CI: formata, analisa e testa
 ci: fmt vet test
 
-# Run the example in ./examples/logger
+# Run the example in ./examples/logger (default: DEBUG level)
+# You can override the level by calling e.g. `make run-example LOG_LEVEL=info`
 run-example:
-	cd examples/logger && go run .
+	cd examples/logger && LOG_LEVEL=$(LOG_LEVEL) go run .

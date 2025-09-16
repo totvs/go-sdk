@@ -80,4 +80,4 @@ gitleaks:
 govulncheck:
 	@echo "Running govulncheck..."
 	@mkdir -p reports
-	@go run golang.org/x/vuln/cmd/govulncheck@latest -json ./... > reports/govulncheck-report.json 2>&1 || (echo "Vulnerabilities were detected!")
+	@go run golang.org/x/vuln/cmd/govulncheck@latest ./... > reports/govulncheck-report.txt 2>&1 || (echo "Vulnerabilities were detected!")

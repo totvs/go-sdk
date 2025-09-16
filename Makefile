@@ -55,3 +55,29 @@ ci: fmt vet test
 # You can override the level by calling e.g. `make run-example LOG_LEVEL=info`
 run-example:
 	cd examples/logger && LOG_LEVEL=$(LOG_LEVEL) go run .
+
+
+# security
+.PHONY: security
+security: gosec gitleaks govulncheck
+	@echo "Security checks completed"
+
+.PHONY: gosec
+gosec:
+	@echo "Running gosec..."
+	@mkdir -p reports
+	@go run github.com/securego/gosec/v2/cmd/gosec@latest -fmt=json -out=reports/gosec-report.json ./... 2>&1 || (echo "Security issues were detected!")
+
+.PHONY: gitleaks
+gitleaks:
+	@echo "Running gitleaks..."
+	@docker run -v ${PWD}:/path -v ${PWD}/reports:/reports zricethezav/gitleaks:latest detect \
+		--source="/path" \
+		--report-path="/reports/gitleaks-report.json" \
+		-v || (echo "Secrets were detected!")
+
+.PHONY: govulncheck
+govulncheck:
+	@echo "Running govulncheck..."
+	@mkdir -p reports
+	@go run golang.org/x/vuln/cmd/govulncheck@latest -json ./... > reports/govulncheck-report.json 2>&1 || (echo "Vulnerabilities were detected!")

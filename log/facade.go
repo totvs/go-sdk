@@ -20,6 +20,7 @@ type LogEvent interface {
 	Err(err error) LogEvent
 	Msg(msg string)
 	Msgf(format string, args ...interface{})
+	Write(p []byte) (int, error)
 }
 
 // LoggerFacade é a abstração pública para logging usada pela aplicação.
@@ -95,6 +96,7 @@ func (nopEvent) Interface(k string, v interface{}) LogEvent { return nopEvent{} 
 func (nopEvent) Err(err error) LogEvent                     { return nopEvent{} }
 func (nopEvent) Msg(msg string)                             {}
 func (nopEvent) Msgf(format string, args ...interface{})    {}
+func (nopEvent) Write(p []byte) (n int, err error)          { return 0, nil }
 
 type nopLogger struct{}
 

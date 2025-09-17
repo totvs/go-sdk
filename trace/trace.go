@@ -8,9 +8,9 @@ import (
 
 // Public constants for trace header and field names used across projects.
 const (
-	TraceIDHeader            = "X-Request-Id"
-	TraceIDCorrelationHeader = "X-Correlation-Id"
-	TraceIDField             = "trace_id"
+	TraceIDHTTPHeader            = "X-Request-Id"
+	TraceIDHTTPCorrelationHeader = "X-Correlation-Id"
+	TraceIDField                 = "trace_id"
 )
 
 type ctxKey string

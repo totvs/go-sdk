@@ -12,7 +12,9 @@ import (
 )
 
 // zerolog-backed implementation of the fluent Event interface declared in lg.
-type zerologEvent struct{ e *zerolog.Event }
+type zerologEvent struct {
+	e *zerolog.Event
+}
 
 func newZerologEvent(e *zerolog.Event) lg.LogEvent { return &zerologEvent{e: e} }
 
@@ -32,6 +34,16 @@ func (z *zerologEvent) Err(err error) lg.LogEvent { z.e = z.e.Err(err); return z
 func (z *zerologEvent) Msg(msg string)            { z.e.Msg(msg) }
 func (z *zerologEvent) Msgf(format string, args ...interface{}) {
 	z.e.Msgf(format, args...)
+}
+func (z *zerologEvent) Write(p []byte) (n int, err error) {
+	n = len(p)
+	if n > 0 && p[n-1] == '\n' {
+		// Trim CR added by stdlog.
+		p = p[0 : n-1]
+	}
+	z.e.CallerSkipFrame(1).Msg(string(p))
+
+	return n, nil
 }
 
 // implLogger is the concrete logger implementation based on zerolog.

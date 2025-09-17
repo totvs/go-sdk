@@ -5,12 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
-
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
 	middleware "github.com/totvs/go-sdk/log/middleware"
-	util "github.com/totvs/go-sdk/log/util"
 	tr "github.com/totvs/go-sdk/trace"
 )
 
@@ -81,35 +78,6 @@ func httpServerExample() {
 	}
 }
 
-// ginServerExample inicia um servidor Gin demonstrando a integração com a
-// implementação customizada de logging. Ele redireciona `gin.DefaultWriter`
-// e `gin.DefaultErrorWriter` para o `LoggerFacade` via util e usa o
-// middleware do pacote para injetar/extrair o logger no contexto do Gin.
-func ginServerExample() {
-	appLogger := adapter.NewDefaultLog()
-
-	// redireciona os writers padrão do Gin para nosso logger
-	oldOut, oldErr := util.ConfigureGinDefaultWriters(appLogger)
-	defer util.RestoreGinDefaultWriters(oldOut, oldErr)
-
-	r := gin.New()
-	// registra o middleware que injeta o LoggerFacade no contexto do request
-	r.Use(middleware.GinMiddlewareWithLogger(appLogger))
-
-	r.GET("/", func(c *gin.Context) {
-		lg, logged := middleware.GetLoggerFromGinContext(c)
-		if !logged {
-			lg.Info().Msg("handler received request (gin)")
-		}
-		lg.WithField("handler", "root").Info().Msg("handling request")
-		c.String(200, "ok")
-	})
-
-	if err := r.Run(":8080"); err != nil {
-		appLogger.Error(err).Msg("failed to start gin server")
-	}
-}
-
 func main() {
 	startAppLogger()
 	setGlobalLogger()
@@ -118,6 +86,4 @@ func main() {
 	packageLevelFieldsExamples()
 	chainedFluentExample()
 	httpServerExample()
-	// exemplo com Gin (substitui o servidor acima se preferir)
-	// ginServerExample()
 }

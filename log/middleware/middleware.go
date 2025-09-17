@@ -26,9 +26,9 @@ var DefaultMiddlewareOptions = MiddlewareOptions{LogRequest: true, InjectLogger:
 func HTTPMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tid := r.Header.Get(tr.TraceIDHeader)
+			tid := r.Header.Get(tr.TraceIDHTTPHeader)
 			if tid == "" {
-				tid = r.Header.Get(tr.TraceIDCorrelationHeader)
+				tid = r.Header.Get(tr.TraceIDHTTPCorrelationHeader)
 			}
 			if tid == "" {
 				tid = tr.GenerateTraceID()
@@ -49,8 +49,8 @@ func HTTPMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) fu
 				ctx = log.ContextWithLogger(ctx, l2)
 			}
 			if opts.AddTraceHeader {
-				if w.Header().Get(tr.TraceIDHeader) == "" {
-					w.Header().Set(tr.TraceIDHeader, tid)
+				if w.Header().Get(tr.TraceIDHTTPHeader) == "" {
+					w.Header().Set(tr.TraceIDHTTPHeader, tid)
 				}
 			}
 

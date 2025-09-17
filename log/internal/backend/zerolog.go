@@ -1,4 +1,4 @@
-package zerologbackend
+package backend
 
 import (
 	"context"

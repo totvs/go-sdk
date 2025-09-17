@@ -3,12 +3,12 @@ package adapter
 import (
 	"io"
 
-	zimpl "github.com/totvs/go-sdk/internal/backends/zerolog"
 	lg "github.com/totvs/go-sdk/log"
+	backend "github.com/totvs/go-sdk/log/internal/backend"
 )
 
 // NewLog delegates to the internal zerolog backend.
-func NewLog(w io.Writer, level lg.Level) lg.LoggerFacade { return zimpl.NewLog(w, level) }
+func NewLog(w io.Writer, level lg.Level) lg.LoggerFacade { return backend.NewLog(w, level) }
 
 // NewDefaultLog delegates to the internal zerolog backend.
-func NewDefaultLog() lg.LoggerFacade { return zimpl.NewDefaultLog() }
+func NewDefaultLog() lg.LoggerFacade { return backend.NewDefaultLog() }

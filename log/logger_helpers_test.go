@@ -10,7 +10,7 @@ import (
 
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
-	middleware "github.com/totvs/go-sdk/log/middleware/http"
+	middleware "github.com/totvs/go-sdk/log/middleware"
 	tr "github.com/totvs/go-sdk/trace"
 )
 

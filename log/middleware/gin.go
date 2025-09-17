@@ -6,14 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
-	httpmw "github.com/totvs/go-sdk/log/middleware/http"
 	tr "github.com/totvs/go-sdk/trace"
 )
 
 // GinMiddlewareWithOptions returns a gin.HandlerFunc that integrates the
 // LoggerFacade with Gin. It follows the same options used by the HTTP
 // middleware so callers can reuse the same configuration semantics.
-func GinMiddlewareWithOptions(base log.LoggerFacade, opts httpmw.MiddlewareOptions) gin.HandlerFunc {
+func GinMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 
@@ -60,7 +59,7 @@ func GinMiddlewareWithOptions(base log.LoggerFacade, opts httpmw.MiddlewareOptio
 
 // GinMiddlewareWithLogger is a convenience wrapper that uses default options.
 func GinMiddlewareWithLogger(base log.LoggerFacade) gin.HandlerFunc {
-	return GinMiddlewareWithOptions(base, httpmw.DefaultMiddlewareOptions)
+	return GinMiddlewareWithOptions(base, DefaultMiddlewareOptions)
 }
 
 // GinMiddleware is a convenience wrapper that uses the default facade logger.

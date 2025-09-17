@@ -13,7 +13,7 @@ import (
 
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
-	mware "github.com/totvs/go-sdk/log/middleware/http"
+	mware "github.com/totvs/go-sdk/log/middleware"
 )
 
 func TestWithFields(t *testing.T) {

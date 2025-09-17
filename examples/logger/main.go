@@ -9,8 +9,7 @@ import (
 
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
-	ginmiddleware "github.com/totvs/go-sdk/log/middleware/gin"
-	middleware "github.com/totvs/go-sdk/log/middleware/http"
+	middleware "github.com/totvs/go-sdk/log/middleware"
 	util "github.com/totvs/go-sdk/log/util"
 	tr "github.com/totvs/go-sdk/trace"
 )
@@ -95,10 +94,10 @@ func ginServerExample() {
 
 	r := gin.New()
 	// registra o middleware que injeta o LoggerFacade no contexto do request
-	r.Use(ginmiddleware.GinMiddlewareWithLogger(appLogger))
+	r.Use(middleware.GinMiddlewareWithLogger(appLogger))
 
 	r.GET("/", func(c *gin.Context) {
-		lg, logged := ginmiddleware.GetLoggerFromGinContext(c)
+		lg, logged := middleware.GetLoggerFromGinContext(c)
 		if !logged {
 			lg.Info().Msg("handler received request (gin)")
 		}

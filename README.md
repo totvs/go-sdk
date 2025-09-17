@@ -1,102 +1,65 @@
 # go-sdk
 
-Projeto base (SDK) em Go com utilitários reaproveitáveis de logging, tracing
-e integrações com frameworks comuns.
+SDK Go com utilitários reutilizáveis para logging, tracing e integrações.
 
-Visão geral
-- Fachada de logging: `github.com/totvs/go-sdk/log` — API pública usada pela aplicação.
-- Backend zerolog implementado internamente e exposto via `log/adapter`.
-- Helpers de propagation em `github.com/totvs/go-sdk/trace`.
+Resumo
+- Fachada de logging pública em `log/` para desacoplar consumidores de implementações
+  concretas (por exemplo `zerolog`).
+- Implementações concretas ficam em `log/internal` (não exportadas).
+- Helpers de trace e propagation em `trace/`.
+- Exemplos em `examples/` e alvos úteis no `Makefile`.
 
 Estrutura principal
-- `log/` — fachada pública: interfaces (`LoggerFacade`, `LogEvent`), helpers de contexto e middleware genérico.
-- `log/adapter/` — adaptadores e construtores públicos (ex.: `adapter.NewLog`, `adapter.NewDefaultLog`) que retornam `LoggerFacade`.
-- `log/util/` — integrações e helpers (por exemplo escritores para Gin, wrappers para klog/logr).
-- `log/middleware/` — middlewares HTTP/Gin que usam a fachada e propagam `trace_id`.
+- `log/` — pacote de fachada: `facade.go`, testes e documentação (`log/README.md`).
+  - `log/adapter/` — adaptadores públicos que retornam `LoggerFacade` (ex.: `NewLog`, `NewDefaultLog`).
+  - `log/internal/` — implementações concretas (por exemplo `internal/backend/zerolog.go`).
+  - `log/middleware/`, `log/util/` — middlewares e helpers relacionados a logging.
 - `trace/` — helpers de propagation (`ContextWithTrace`, `TraceIDFromContext`, `GenerateTraceID`).
-- `internal/backends/zerolog/` — implementação concreta baseada em `zerolog` (não exportada publicamente).
-- `examples/` — exemplos executáveis (ex.: `examples/logger`).
+- `examples/` — exemplos executáveis (ex.: `examples/logger/main.go`).
+- `Makefile` — targets comuns: `test`, `test-v`, `test-race`, `cover`, `cover-html`, `fmt`, `vet`, `build`, `tidy`, `ci`, `run-example`.
 
-Instalação e dependências
-- O módulo Go está na raiz: `module github.com/totvs/go-sdk`.
-- Instale dependências e atualize o `go.mod` com:
+Logging: API rápida
+- Construtores (adapter):
+  - `adapter.NewLog(w io.Writer, level)` — cria um `LoggerFacade` que escreve para `w`.
+  - `adapter.NewDefaultLog()` — cria um logger com configurações padrão.
+- Context helpers (em `trace` e `log`):
+  - `trace.ContextWithTrace`, `trace.TraceIDFromContext`, `trace.GenerateTraceID` — propagation de trace id.
+  - `log.ContextWithLogger(ctx, l)`, `log.LoggerFromContext(ctx)`, `log.FromContext(ctx)` — injeção/recuperação de `LoggerFacade`.
+- Helpers de campos: `WithField`, `WithFields` (disponíveis no `LoggerFacade`).
+- Erros: use `LoggerFacade.Error(err)` seguido de `Msg`/`Msgf` para incluir o campo `error` no payload. Ex.: `f.Error(err).Msg("failed")` ou `f.WithFields(...).Error(err).Msgf("failed %s", name)`.
+- Globais/atalhos: `log.SetGlobal(l)`, `log.GetGlobal()` e helpers de nível `log.Debug()/Info()/Warn()/Error(err)` que retornam um `LogEvent` fluente.
 
-```bash
-go mod tidy
-```
+Adicionando um adapter
+- Para suportar outra biblioteca, adicione um adaptador em `log/adapter/` que construa/retorne um `log.LoggerFacade`.
+- Mantenha a dependência concreta dentro de `log/internal` quando for necessário usar bibliotecas externas.
 
-Uso rápido
+Testes e desenvolvimento
+- Coloque testes ao lado do código (`*_test.go`). Use `bytes.Buffer` e `httptest` para capturar saída e comportamento HTTP.
+- Se um teste alterar o logger global (`log.SetGlobal`), restaure o valor anterior com `defer log.SetGlobal(prev)`.
+- Alvos úteis:
+  - `make test` — roda todos os testes.
+  - `make test-v` — testes em modo verbose.
+  - `make test-race` — com detector de race e cobertura.
+  - `make run-example` — executa `examples/logger` (use `LOG_LEVEL` para alterar o nível).
 
-Crie um logger (adapter) e registre como global para usar os atalhos do pacote `log`:
+Formatação e análise estática
+- Rode `make fmt` (gofmt) e `make vet` (go vet) antes de submeter mudanças.
 
-```go
-package main
+Build / CI
+- `make build` — compila os pacotes.
+- `make ci` — target para CI que executa `fmt`, `vet` e `test`.
 
-import (
-    "os"
+Boas práticas
+- Prefira usar a abstração `log.LoggerFacade` nas bibliotecas para não acoplar
+  consumidores a uma implementação concreta.
+- Mantenha implementações concretas em `log/internal` para evitar vazamento de dependências.
+- O logger global é armazenado com `sync/atomic.Value`: definir o global uma vez no
+  startup é a prática recomendada; swaps em runtime são suportados mas use com cuidado.
 
-    logger "github.com/totvs/go-sdk/log"
-    adapter "github.com/totvs/go-sdk/log/adapter"
-)
+Exemplos e documentação adicional
+- Veja `examples/logger` para um exemplo de uso.
+- Consulte `log/README.md` para documentação detalhada da fachada e exemplos de adapters.
 
-func main() {
-    lg := adapter.NewDefaultLog() // cria um LoggerFacade (zerolog por baixo)
-    logger.SetGlobal(lg)
-    logger.Info().Msg("aplicação iniciada")
-}
-```
-
-Para construir com `io.Writer` e nível customizado:
-
-```go
-lg := adapter.NewLog(os.Stdout, logger.InfoLevel)
-```
-
-Trace / propagation
-- Use o pacote `trace` para gerar/propagar `trace_id` entre handlers/middlewares:
-
-```go
-import tr "github.com/totvs/go-sdk/trace"
-
-ctx := tr.ContextWithTrace(r.Context(), "trace-1234")
-```
-
-Middleware
-- Use os middlewares em `log/middleware` para gerar `trace_id`, injetar o logger no contexto e adicionar o header `X-Request-Id` na resposta.
-
-Exemplo (net/http):
-
-```go
-import (
-    "net/http"
-    middleware "github.com/totvs/go-sdk/log/middleware/http"
-    adapter "github.com/totvs/go-sdk/log/adapter"
-)
-
-http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(adapter.NewDefaultLog())(mux))
-```
-
-Executar exemplos
-- Exemplo principal:
-
-```bash
-cd examples/logger
-LOG_LEVEL=DEBUG go run .
-```
-
-Testes e CI
-- Rode todos os testes com:
-
-```bash
-go test ./...
-```
-
-- CI deve executar `gofmt -w .`, `go vet ./...` e `go test ./...`.
-
-Contribuindo
-- Mantenha implementações concretas em `internal/` para não expô-las a consumidores.
-- Adicione adapters em `log/adapter` para integrar bibliotecas externas sem poluir a fachada.
-
-Mais informações
-- Veja `log/README.md`, `log/adapter/README.md` e `log/util/README.md` para detalhes e exemplos.
+Licença e contato
+- Ver `LICENSE` (se presente) e abra issues/pull requests para contribuições.
 

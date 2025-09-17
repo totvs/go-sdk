@@ -8,6 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 	lg "github.com/totvs/go-sdk/log"
+	"github.com/totvs/go-sdk/transaction"
 )
 
 // zerolog-backed adapter in its own package. It implements lg.LoggerFacade
@@ -46,7 +47,7 @@ func (z zerologAdapter) WithFields(fields map[string]interface{}) lg.LoggerFacad
 }
 
 func (z zerologAdapter) WithTraceFromContext(ctx context.Context) lg.LoggerFacade {
-	if tid := lg.TraceIDFromContext(ctx); tid != "" {
+	if tid := transaction.TraceIDFromContext(ctx); tid != "" {
 		return zerologAdapter{l: z.l.With().Str(lg.TraceIDField, tid).Logger()}
 	}
 	return z
@@ -85,6 +86,7 @@ func (z zerologAdapter) Error(err error) lg.LogEvent {
 	}
 	return newZerologEvent(ev)
 }
+func (z zerologAdapter) Write(p []byte) (n int, err error) { return z.l.Write(p) }
 
 // NewLog cria um LoggerFacade baseado em zerolog que escreve em `w` com o nível informado.
 func NewLog(w io.Writer, level lg.Level) lg.LoggerFacade {

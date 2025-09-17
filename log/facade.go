@@ -6,16 +6,6 @@ import (
 	"sync/atomic"
 )
 
-// Public constants for trace header and field names used across projects.
-const (
-	// TraceIDHeader is the HTTP header used to carry the request trace id.
-	TraceIDHeader = "X-Request-Id"
-	// TraceIDCorrelationHeader is the alternate header name often used for correlation ids.
-	TraceIDCorrelationHeader = "X-Correlation-Id"
-	// TraceIDField is the JSON field name added to logs for trace ids.
-	TraceIDField = "trace_id"
-)
-
 // LogEvent é a interface fluente para construir logs encadeados (similar a zerolog.Event).
 // Mantemos essa interface aqui para não expor zerolog diretamente aos consumidores.
 type LogEvent interface {
@@ -50,6 +40,9 @@ type LoggerFacade interface {
 	// Error accepts an optional error that will be attached to the event and
 	// returns a LogEvent for chaining.
 	Error(err error) LogEvent
+
+	Write(p []byte) (n int, err error)
+
 }
 
 // defaultAdapter is a minimal in-package adapter used as the package default.
@@ -76,6 +69,8 @@ func (d defaultAdapter) Error(err error) LogEvent {
 	}
 	return newZerologEvent(ev)
 }
+
+func (d defaultAdapter) Write(p []byte) (n int, err error) { return d.l.l.Write(p) }
 
 // NOTE: adapter implementation (zerologAdapter) is provided in a separate
 // file (zerolog_adapter.go) to keep the facade declaration independent of the

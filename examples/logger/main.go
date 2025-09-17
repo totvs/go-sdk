@@ -8,12 +8,13 @@ import (
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
 	middleware "github.com/totvs/go-sdk/log/middleware/http"
+	"github.com/totvs/go-sdk/transaction"
 )
 
 // startAppLogger cria um logger de aplicação com trace e emite a mensagem de inicialização.
 func startAppLogger() {
 	l := adapter.NewDefaultLog()
-	ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
+	ctx := transaction.ContextWithTrace(context.Background(), "trace-1234")
 	l = l.WithTraceFromContext(ctx)
 	l.Info().Msg("application started (facade)")
 }

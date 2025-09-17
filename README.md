@@ -1,166 +1,102 @@
 # go-sdk
 
-Projeto base (SDK) em Go que serve como blueprint para outros projetos da TOTVS.
+Projeto base (SDK) em Go com utilitários reaproveitáveis de logging, tracing
+e integrações com frameworks comuns.
 
-## Visão geral
-- Contém utilitários reusáveis para logging (pacote `log`).
-- Este repositório fornece helpers, guias e exemplos — não implementa operators nem addons prontos.
+Visão geral
+- Fachada de logging: `github.com/totvs/go-sdk/log` — API pública usada pela aplicação.
+- Backend zerolog implementado internamente e exposto via `log/adapter`.
+- Helpers de propagation em `github.com/totvs/go-sdk/trace`.
 
-### Principais características
-- Logging: formato JSON com suporte a `trace_id` para rastreabilidade.
-- Estrutura modular: os utilitários ficam em pastas como `log/`.
+Estrutura principal
+- `log/` — fachada pública: interfaces (`LoggerFacade`, `LogEvent`), helpers de contexto e middleware genérico.
+- `log/adapter/` — adaptadores e construtores públicos (ex.: `adapter.NewLog`, `adapter.NewDefaultLog`) que retornam `LoggerFacade`.
+- `log/util/` — integrações e helpers (por exemplo escritores para Gin, wrappers para klog/logr).
+- `log/middleware/` — middlewares HTTP/Gin que usam a fachada e propagam `trace_id`.
+- `trace/` — helpers de propagation (`ContextWithTrace`, `TraceIDFromContext`, `GenerateTraceID`).
+- `internal/backends/zerolog/` — implementação concreta baseada em `zerolog` (não exportada publicamente).
+- `examples/` — exemplos executáveis (ex.: `examples/logger`).
 
-### Estrutura do repositório
-
-1. Módulos/pacotes incluídos
-
-- `log/` — utilitários de logging (pacote `log`).
-
-```text
-module github.com/totvs/go-sdk
-
-go 1.25
-```
-
-2. Instale dependências:
+Instalação e dependências
+- O módulo Go está na raiz: `module github.com/totvs/go-sdk`.
+- Instale dependências e atualize o `go.mod` com:
 
 ```bash
-# o `go.mod` agora está na raiz do repositório
 go mod tidy
 ```
 
-3. Se preferir desenvolver consumindo o repositório localmente a partir de outro repositório, use `replace` no `go.mod` do consumidor:
+Uso rápido
 
-```mod
-replace github.com/totvs/go-sdk => /caminho/para/repositorio
-```
-
-Uso do logger (exemplo)
-
-Importe o pacote e use as funções do pacote `log` (ex.: `logger "github.com/totvs/go-sdk/log"`):
+Crie um logger (adapter) e registre como global para usar os atalhos do pacote `log`:
 
 ```go
+package main
+
 import (
-    "context"
     "os"
 
     logger "github.com/totvs/go-sdk/log"
-    impl "github.com/totvs/go-sdk/log/impl"
+    adapter "github.com/totvs/go-sdk/log/adapter"
 )
 
 func main() {
-    // use the API to create a logger instance
-    f := adapter.NewLog(os.Stdout, logger.InfoLevel)
-
-    // Alternatively use the default constructor which writes to stdout and
-    // reads the log level from the `LOG_LEVEL` environment variable:
-    // f := adapter.NewDefaultLog()
-    // For per-request trace ids prefer using the HTTP middleware which
-    // will inject the trace id from the request into the logger context.
-    f.Info().Msg("aplicação iniciada")
-
-    // tornar este logger a instância global utilizada por atalhos do pacote
-    logger.SetGlobal(f)
-    logger.Info().Msg("usando logger global")
+    lg := adapter.NewDefaultLog() // cria um LoggerFacade (zerolog por baixo)
+    logger.SetGlobal(lg)
+    logger.Info().Msg("aplicação iniciada")
 }
 ```
 
-Configuração via ambiente:
+Para construir com `io.Writer` e nível customizado:
 
-- Ajuste o nível de log via `LOG_LEVEL`. Valores aceitos (case-insensitive): `DEBUG`, `INFO` (padrão), `WARN` / `WARNING`, `ERROR`.
-- Exemplo: `export LOG_LEVEL=DEBUG` antes de iniciar a aplicação.
+```go
+lg := adapter.NewLog(os.Stdout, logger.InfoLevel)
+```
 
-Middleware HTTP (exemplo rápido)
+Trace / propagation
+- Use o pacote `trace` para gerar/propagar `trace_id` entre handlers/middlewares:
+
+```go
+import tr "github.com/totvs/go-sdk/trace"
+
+ctx := tr.ContextWithTrace(r.Context(), "trace-1234")
+```
+
+Middleware
+- Use os middlewares em `log/middleware` para gerar `trace_id`, injetar o logger no contexto e adicionar o header `X-Request-Id` na resposta.
+
+Exemplo (net/http):
 
 ```go
 import (
     "net/http"
     middleware "github.com/totvs/go-sdk/log/middleware/http"
+    adapter "github.com/totvs/go-sdk/log/adapter"
 )
 
-mux := http.NewServeMux()
-// ... registre handlers ...
-http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
+http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(adapter.NewDefaultLog())(mux))
 ```
 
-## Versionamento e publicação
-- O repositório usa um único módulo Go na raiz: `module github.com/totvs/go-sdk`.
-- Para consumir um pacote deste repositório use a import path, por exemplo: `github.com/totvs/go-sdk/log`.
-- Consumidor: `go get github.com/totvs/go-sdk@v0.1.0`.
+Executar exemplos
+- Exemplo principal:
 
-## CI e testes
-- Um script simples para rodar `go test` em todo o repositório:
+```bash
+cd examples/logger
+LOG_LEVEL=DEBUG go run .
+```
+
+Testes e CI
+- Rode todos os testes com:
 
 ```bash
 go test ./...
 ```
 
-## Boas práticas
-- Coloque código público reutilizável em pacotes dentro de suas pastas (`log/`, etc.).
-- Coloque código que não deve ser importado externamente em `internal/` dentro do respectivo pacote.
-- Use `go.work` para desenvolvimento local e `replace` para casos pontuais.
-- Documente cada pacote com `README.md` e exemplos; adicione `Example` tests para gerar documentação automática.
+- CI deve executar `gofmt -w .`, `go vet ./...` e `go test ./...`.
 
-## Exemplos rápidos
+Contribuindo
+- Mantenha implementações concretas em `internal/` para não expô-las a consumidores.
+- Adicione adapters em `log/adapter` para integrar bibliotecas externas sem poluir a fachada.
 
-Uso básico:
+Mais informações
+- Veja `log/README.md`, `log/adapter/README.md` e `log/util/README.md` para detalhes e exemplos.
 
-```go
-import (
-    "context"
-    "os"
-
-    logger "github.com/totvs/go-sdk/log"
-    impl "github.com/totvs/go-sdk/log/impl"
-)
-
-func main() {
-    // criando uma instância de logger (a implementação concreta é ocultada)
-    f := adapter.NewLog(os.Stdout, logger.InfoLevel)
-
-    // per-request trace ids are normally added by the HTTP middleware;
-    f.Info().Msg("aplicação iniciada")
-
-    // opcional: definir como logger global para usar atalhos como `logger.Info()`
-    logger.SetGlobal(f)
-    logger.Info().Msg("mensagem via logger global")
-
-    // note: error logging uses an explicit error parameter via the fluent API:
-    // `f.Error(err).Msg("failed to start")` — you can chain fields before calling `Msg`.
-}
-```
-
-Adicionar campos e usar helpers:
-
-```go
-f := adapter.NewLog(os.Stdout, logger.DebugLevel)
-f = f.WithField("service", "orders")
-f = f.WithFields(map[string]interface{}{"version": 3, "region": "eu"})
-    f.Debug().Msg("config carregada")
-```
-
-HTTP middleware (gera `trace id` automaticamente se estiver ausente):
-
-```go
-mux := http.NewServeMux()
-mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte("ok"))
-})
-
-// usa logger default
-http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
-
-// or with a custom logger
-// myLogger := adapter.NewLog(os.Stdout, logger.DebugLevel)
-// http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(myLogger)(mux))
-```
-
-Ao usar o middleware, se o cliente não enviar `X-Request-Id` ou `X-Correlation-Id`, o middleware gera um id seguro,
-o coloca no contexto, adiciona ao log como `trace_id` e também inclui o header `X-Request-Id` na resposta para facilitar
-correlação entre cliente e servidor.
-
-## Contribuindo
-- Siga as políticas internas da empresa para licenciamento e contribution guidelines.
-
-## Mais informações
-- Verifique o README em `log/README.md` para exemplos e orientações específicas.

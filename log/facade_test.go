@@ -1,4 +1,4 @@
-package log
+package log_test
 
 import (
 	"bytes"
@@ -7,11 +7,14 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	logger "github.com/totvs/go-sdk/log"
+	adapter "github.com/totvs/go-sdk/log/adapter"
 )
 
 func TestFacadeBasicWrites(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewLog(buf, DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 	f.Info().Msg("hello-facade")
 
 	out := buf.String()
@@ -22,7 +25,7 @@ func TestFacadeBasicWrites(t *testing.T) {
 
 func TestFacadeWithFieldAndFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewLog(buf, DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 
 	f2 := f.WithField("service", "orders")
 	f3 := f2.WithFields(map[string]interface{}{"version": 3})
@@ -42,20 +45,20 @@ func TestFacadeWithFieldAndFields(t *testing.T) {
 
 func TestGlobalFacadeAndFromContext(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewLog(buf, DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 
 	// set global and use package shortcut
-	SetGlobal(f)
-	Info().Msg("via-global")
+	logger.SetGlobal(f)
+	logger.Info().Msg("via-global")
 	if !strings.Contains(buf.String(), "via-global") {
 		t.Fatalf("expected global message, got: %s", buf.String())
 	}
 
 	// injecting a facade into context and extracting it
 	buf.Reset()
-	fctx := NewLog(buf, DebugLevel)
-	ctx := ContextWithLogger(context.Background(), fctx)
-	f2 := FromContext(ctx)
+	fctx := adapter.NewLog(buf, logger.DebugLevel)
+	ctx := logger.ContextWithLogger(context.Background(), fctx)
+	f2 := logger.FromContext(ctx)
 	f2.Info().Msg("from-ctx")
 	if !strings.Contains(buf.String(), "from-ctx") {
 		t.Fatalf("expected from-ctx in output, got: %s", buf.String())
@@ -64,7 +67,7 @@ func TestGlobalFacadeAndFromContext(t *testing.T) {
 
 func TestErrorWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewLog(buf, DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 	err := errors.New("boom")
 	f.Error(err).Msg("failed action")
 
@@ -84,7 +87,7 @@ func TestErrorWithError(t *testing.T) {
 
 func TestErrorwWithFields(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewLog(buf, DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 	err := errors.New("boom")
 	f.WithFields(map[string]interface{}{"service": "orders"}).Error(err).Msg("failed action")
 
@@ -107,7 +110,7 @@ func TestErrorwWithFields(t *testing.T) {
 
 func TestErrfWithError(t *testing.T) {
 	buf := &bytes.Buffer{}
-	f := NewLog(buf, DebugLevel)
+	f := adapter.NewLog(buf, logger.DebugLevel)
 	err := errors.New("boom")
 	f.Error(err).Msgf("failed %s", "start")
 

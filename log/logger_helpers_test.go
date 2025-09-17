@@ -11,6 +11,7 @@ import (
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
 	middleware "github.com/totvs/go-sdk/log/middleware/http"
+	tr "github.com/totvs/go-sdk/trace"
 )
 
 func TestWithFieldAddsSingleField(t *testing.T) {
@@ -96,7 +97,7 @@ func TestHTTPMiddlewareInjectsLogger(t *testing.T) {
 
 	handler := middleware.HTTPMiddlewareWithLogger(baseF)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// handler should avoid duplicating the middleware log when middleware already logged
-		if !logger.LoggedFromContext(r.Context()) {
+		if !tr.LoggedFromContext(r.Context()) {
 			if lf, ok := logger.LoggerFromContext(r.Context()); ok {
 				lf.Info().Msg("handler-log")
 			}

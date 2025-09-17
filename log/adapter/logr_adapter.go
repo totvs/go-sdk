@@ -1,38 +1,40 @@
-package log
+package adapter
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/go-logr/logr"
-    "k8s.io/klog/v2"
+	"github.com/go-logr/logr"
+	"k8s.io/klog/v2"
+
+	lg "github.com/totvs/go-sdk/log"
 )
 
 // logrSink implements logr.LogSink and delegates logging calls to the
 // package LoggerFacade. We build a logr.Logger via `logr.New(&logrSink{})`.
 type logrSink struct {
-	lf     LoggerFacade
+	lf     lg.LoggerFacade
 	name   string
 	values map[string]interface{}
 }
 
 // NewLogrAdapter cria um novo logr.Logger que delega para o LoggerFacade fornecido.
-func NewLogrAdapter(l LoggerFacade) logr.Logger {
+func NewLogrAdapter(l lg.LoggerFacade) logr.Logger {
 	return logr.New(&logrSink{lf: l})
 }
 
 // NewGlobalLogr cria um logr.Logger usando o logger global do pacote `log`.
-func NewGlobalLogr() logr.Logger { return NewLogrAdapter(GetGlobal()) }
+func NewGlobalLogr() logr.Logger { return NewLogrAdapter(lg.GetGlobal()) }
 
 // InstallKlogLogger binds the provided LoggerFacade to klog. After calling
 // this, klog will route its structured logs to the supplied facade via the
 // `logr` adapter. This is useful when integrating with
 // `k8s.io/component-base/logs` and other Kubernetes components that use klog.
-func InstallKlogLogger(l LoggerFacade) {
-    klog.SetLogger(NewLogrAdapter(l))
+func InstallKlogLogger(l lg.LoggerFacade) {
+	klog.SetLogger(NewLogrAdapter(l))
 }
 
 // InstallGlobalKlog binds the package global logger to klog.
-func InstallGlobalKlog() { InstallKlogLogger(GetGlobal()) }
+func InstallGlobalKlog() { InstallKlogLogger(lg.GetGlobal()) }
 
 func (r *logrSink) Init(_ logr.RuntimeInfo) {}
 

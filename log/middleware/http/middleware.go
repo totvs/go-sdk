@@ -5,6 +5,7 @@ import (
 
 	log "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
+	tr "github.com/totvs/go-sdk/trace"
 )
 
 // MiddlewareOptions customizes the behavior of the HTTP middleware.
@@ -25,14 +26,14 @@ var DefaultMiddlewareOptions = MiddlewareOptions{LogRequest: true, InjectLogger:
 func HTTPMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			trace := r.Header.Get(log.TraceIDHeader)
-			if trace == "" {
-				trace = r.Header.Get(log.TraceIDCorrelationHeader)
+			tid := r.Header.Get(tr.TraceIDHeader)
+			if tid == "" {
+				tid = r.Header.Get(tr.TraceIDCorrelationHeader)
 			}
-			if trace == "" {
-				trace = log.GenerateTraceID()
+			if tid == "" {
+				tid = tr.GenerateTraceID()
 			}
-			ctx := log.ContextWithTrace(r.Context(), trace)
+			ctx := tr.ContextWithTrace(r.Context(), tid)
 
 			// prepare a facade that includes trace
 			l := base.WithTraceFromContext(ctx)
@@ -42,14 +43,14 @@ func HTTPMiddlewareWithOptions(base log.LoggerFacade, opts MiddlewareOptions) fu
 
 			if opts.LogRequest {
 				l2.Info().Msg("http request received")
-				ctx = log.ContextWithLogged(ctx)
+				ctx = tr.ContextWithLogged(ctx)
 			}
 			if opts.InjectLogger {
 				ctx = log.ContextWithLogger(ctx, l2)
 			}
 			if opts.AddTraceHeader {
-				if w.Header().Get(log.TraceIDHeader) == "" {
-					w.Header().Set(log.TraceIDHeader, trace)
+				if w.Header().Get(tr.TraceIDHeader) == "" {
+					w.Header().Set(tr.TraceIDHeader, tid)
 				}
 			}
 
@@ -80,7 +81,7 @@ func GetLoggerFromRequest(r *http.Request) (log.LoggerFacade, bool) {
 		return log.GetGlobal(), false
 	}
 	if lf, ok := log.LoggerFromContext(r.Context()); ok {
-		return lf, log.LoggedFromContext(r.Context())
+		return lf, tr.LoggedFromContext(r.Context())
 	}
 	return log.GetGlobal(), false
 }

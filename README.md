@@ -45,15 +45,16 @@ import (
     "os"
 
     logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
 )
 
 func main() {
     // use the API to create a logger instance
-    f := logger.NewLog(os.Stdout, logger.InfoLevel)
+    f := adapter.NewLog(os.Stdout, logger.InfoLevel)
 
     // Alternatively use the default constructor which writes to stdout and
     // reads the log level from the `LOG_LEVEL` environment variable:
-    // f := logger.NewDefaultLog()
+    // f := adapter.NewDefaultLog()
     // For per-request trace ids prefer using the HTTP middleware which
     // will inject the trace id from the request into the logger context.
     f.Info().Msg("aplicação iniciada")
@@ -110,11 +111,12 @@ import (
     "os"
 
     logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
 )
 
 func main() {
     // criando uma instância de logger (a implementação concreta é ocultada)
-    f := logger.NewLog(os.Stdout, logger.InfoLevel)
+    f := adapter.NewLog(os.Stdout, logger.InfoLevel)
 
     // per-request trace ids are normally added by the HTTP middleware;
     f.Info().Msg("aplicação iniciada")
@@ -131,7 +133,7 @@ func main() {
 Adicionar campos e usar helpers:
 
 ```go
-f := logger.NewLog(os.Stdout, logger.DebugLevel)
+f := adapter.NewLog(os.Stdout, logger.DebugLevel)
 f = f.WithField("service", "orders")
 f = f.WithFields(map[string]interface{}{"version": 3, "region": "eu"})
     f.Debug().Msg("config carregada")
@@ -149,7 +151,7 @@ mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 http.ListenAndServe(":8080", middleware.HTTPMiddleware(mux))
 
 // or with a custom logger
-// myLogger := logger.NewLog(os.Stdout, logger.DebugLevel)
+// myLogger := adapter.NewLog(os.Stdout, logger.DebugLevel)
 // http.ListenAndServe(":8080", middleware.HTTPMiddlewareWithLogger(myLogger)(mux))
 ```
 

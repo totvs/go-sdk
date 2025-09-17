@@ -5,15 +5,20 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
+
 	logger "github.com/totvs/go-sdk/log"
 	adapter "github.com/totvs/go-sdk/log/adapter"
+	ginmiddleware "github.com/totvs/go-sdk/log/middleware/gin"
 	middleware "github.com/totvs/go-sdk/log/middleware/http"
+	util "github.com/totvs/go-sdk/log/util"
+	tr "github.com/totvs/go-sdk/trace"
 )
 
 // startAppLogger cria um logger de aplicação com trace e emite a mensagem de inicialização.
 func startAppLogger() {
 	l := adapter.NewDefaultLog()
-	ctx := logger.ContextWithTrace(context.Background(), "trace-1234")
+	ctx := tr.ContextWithTrace(context.Background(), "trace-1234")
 	l = l.WithTraceFromContext(ctx)
 	l.Info().Msg("application started (facade)")
 }
@@ -77,6 +82,35 @@ func httpServerExample() {
 	}
 }
 
+// ginServerExample inicia um servidor Gin demonstrando a integração com a
+// implementação customizada de logging. Ele redireciona `gin.DefaultWriter`
+// e `gin.DefaultErrorWriter` para o `LoggerFacade` via util e usa o
+// middleware do pacote para injetar/extrair o logger no contexto do Gin.
+func ginServerExample() {
+	appLogger := adapter.NewDefaultLog()
+
+	// redireciona os writers padrão do Gin para nosso logger
+	oldOut, oldErr := util.ConfigureGinDefaultWriters(appLogger)
+	defer util.RestoreGinDefaultWriters(oldOut, oldErr)
+
+	r := gin.New()
+	// registra o middleware que injeta o LoggerFacade no contexto do request
+	r.Use(ginmiddleware.GinMiddlewareWithLogger(appLogger))
+
+	r.GET("/", func(c *gin.Context) {
+		lg, logged := ginmiddleware.GetLoggerFromGinContext(c)
+		if !logged {
+			lg.Info().Msg("handler received request (gin)")
+		}
+		lg.WithField("handler", "root").Info().Msg("handling request")
+		c.String(200, "ok")
+	})
+
+	if err := r.Run(":8080"); err != nil {
+		appLogger.Error(err).Msg("failed to start gin server")
+	}
+}
+
 func main() {
 	startAppLogger()
 	setGlobalLogger()
@@ -85,4 +119,6 @@ func main() {
 	packageLevelFieldsExamples()
 	chainedFluentExample()
 	httpServerExample()
+	// exemplo com Gin (substitui o servidor acima se preferir)
+	// ginServerExample()
 }

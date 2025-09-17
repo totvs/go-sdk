@@ -12,10 +12,16 @@ baseada em `zerolog`. Os consumidores usam a interface pública do pacote
 
 ## Estrutura
 
-- `logger.go` — implementação concreta (interno) baseada em `zerolog`.
+ - `impl/` — implementações concretas/backends (por exemplo `log/impl/zerolog_impl.go`).
 - `facade.go` — a fachada pública `LoggerFacade` e helpers de contexto.
 - `logr_adapter.go` — adaptador para `logr` (usado por `controller-runtime`).
 - `middleware/` — helpers e middleware HTTP (ex.: injeção de trace id).
+ - `adapter/` — adaptadores que convertem bibliotecas externas para a fachada
+   (`LoggerFacade`). Mantemos dependências externas nestes arquivos para evitar
+   vazá-las para o restante do package `log`.
+ - `util/` — utilitários e integrações (por exemplo, helpers para Gin, wrappers
+   para `klog`/`logr`) que operam *sobre* a fachada. Esses arquivos centralizam
+   integrações e facilitam uso consistente entre projetos.
 
 ## Como usar
 
@@ -27,11 +33,12 @@ baseada em `zerolog`. Os consumidores usam a interface pública do pacote
 import (
     "os"
     logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
 )
 
 func main() {
     // cria uma fachada que escreve em stdout com nível Info
-    lg := logger.NewLog(os.Stdout, logger.InfoLevel)
+    lg := adapter.NewLog(os.Stdout, logger.InfoLevel)
 
     // registra como logger global (opcional)
     logger.SetGlobal(lg)
@@ -43,7 +50,7 @@ func main() {
 
 ### API rápida
 
-- Construtores: `NewLog(w io.Writer, level Level) LoggerFacade`, `NewDefaultLog()`.
+- Construtores: `adapter.NewLog(w io.Writer, level Level)` and `adapter.NewDefaultLog()` (convenience helpers that use the internal zerolog backend).
 - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger`, `LoggerFromContext`, `FromContext`.
 - Fields: `WithField`, `WithFields`.
 - Erros: use a API fluente: `Error(err).Msg("message")` ou encadeie campos antes de chamar `Msg`.
@@ -93,10 +100,10 @@ Para integrar a fachada com bibliotecas que exigem uma API diferente,
 existem adaptadores dentro do pacote. Atualmente há um adaptador para
 `logr` (usado por `controller-runtime`).
 
-- Arquivo: `log/logr_adapter.go`.
-- Principais helpers:
-  - `log.NewLogrAdapter(l LoggerFacade) logr.Logger` — cria um `logr.Logger` que delega para `l`.
-  - `log.NewGlobalLogr()` — atalho que usa `log.GetGlobal()`.
+ - Arquivo: `log/adapter/logr_adapter.go`.
+ - Principais helpers:
+   - `adapter.NewLogrAdapter(l LoggerFacade) logr.Logger` — cria um `logr.Logger` que delega para `l`.
+   - `adapter.NewGlobalLogr()` — atalho que usa `log.GetGlobal()`.
 
 Exemplo (usar com controller-runtime):
 
@@ -105,18 +112,29 @@ import (
     "os"
 
     logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
+    adapter "github.com/totvs/go-sdk/log/adapter"
     ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func main() {
-    logger.SetGlobal(logger.NewLog(os.Stdout, logger.InfoLevel))
+    // instala uma implementação zerolog como logger global
+    logger.SetGlobal(adapter.NewLog(os.Stdout, logger.InfoLevel))
 
     // converte a LoggerFacade em logr.Logger para o controller-runtime
-    ctrl.SetLogger(logger.NewLogrAdapter(logger.GetGlobal()))
+    ctrl.SetLogger(adapter.NewLogrAdapter(logger.GetGlobal()))
 
     // iniciar manager, controllers, etc.
 }
 ```
+
+Nota sobre nomenclatura
+
+- `adapter/` é usado quando o código adapta (converte) a API de outra
+  biblioteca para a nossa fachada (`LoggerFacade`).
+- `logger.go` dentro do pacote `log` é a implementação interna/defaut baseada
+  em `zerolog`. Chamamos isso de implementação interna para manter uma opção
+  pronta ao usar a fachada.
 
 ### Integração com klog / component-base logs
 
@@ -127,18 +145,20 @@ Exemplo:
 ```go
 import (
     "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
+    util "github.com/totvs/go-sdk/log/util"
     "k8s.io/klog/v2"
 )
 
-// liga o klog ao logger global do pacote
-log.InstallGlobalKlog()
+// liga o klog ao logger global do pacote (conveniência)
+util.InstallGlobalKlog()
 
-// ou explicitamente com uma fachada criada
-lg := log.NewLog(os.Stdout, log.InfoLevel)
-log.InstallKlogLogger(lg)
+// ou explicitamente com uma fachada criada (mais controle)
+lg := adapter.NewLog(os.Stdout, log.InfoLevel)
+util.InstallKlogWithComponentBase(lg)
 
 // quando usar component-base/logs, chame logs.InitLogs() conforme recomendado
-// pelo Kubernetes e chame log.InstallGlobalKlog() durante a inicialização.
+// pelo Kubernetes e chame util.InstallGlobalKlog() durante a inicialização.
 ```
 
 #### Helper: `InstallKlogWithComponentBase`
@@ -158,15 +178,17 @@ import (
     "os"
 
     logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
+    util "github.com/totvs/go-sdk/log/util"
 )
 
 func main() {
     flag.Parse() // necessário antes de InitLogs
 
-    lg := logger.NewLog(os.Stdout, logger.InfoLevel)
+    lg := adapter.NewLog(os.Stdout, logger.InfoLevel)
 
     // Instala o klog e obtém a função de cleanup (flush)
-    cleanup := logger.InstallKlogWithComponentBase(lg)
+    cleanup := util.InstallKlogWithComponentBase(lg)
     defer cleanup()
 
     // restante da inicialização e execução
@@ -182,7 +204,15 @@ Notas sobre o adaptador `logr`:
 ## Inserindo o logger no contexto (facade)
 
 ```go
-lg := logger.NewLog(os.Stdout, logger.DebugLevel)
+import (
+    "context"
+    "os"
+
+    logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
+)
+
+lg := adapter.NewLog(os.Stdout, logger.DebugLevel)
 ctx := logger.ContextWithLogger(context.Background(), lg)
 
 f := logger.FromContext(ctx)
@@ -221,11 +251,12 @@ import (
     "os"
 
     logger "github.com/totvs/go-sdk/log"
+    impl "github.com/totvs/go-sdk/log/impl"
     middleware "github.com/totvs/go-sdk/log/middleware/http"
 )
 
 func main() {
-    l := logger.NewLog(os.Stdout, logger.InfoLevel)
+    l := adapter.NewLog(os.Stdout, logger.InfoLevel)
 
     mux := http.NewServeMux()
     mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {

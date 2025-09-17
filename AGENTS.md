@@ -8,7 +8,7 @@ Scope
 
 Relevant structure
 - `log/` — the `logger` package containing logging utilities.
-  - `log/logger.go` — concrete wrapper around `zerolog`.
+  - `log/impl/zerolog_impl.go` — concrete wrapper around `zerolog` (implementation of the facade).
   - `log/facade.go` — public facade (`LoggerFacade`) and adapter for the internal logger implementation.
   - `log/*.go` — package tests and documentation (`log/logger_test.go`, `log/facade_test.go`, `log/README.md`).
 - `examples/` — usage examples (e.g. `examples/logger/main.go`).
@@ -20,7 +20,7 @@ Development guidelines
   - Prefer the `LoggerFacade` abstraction (in `log/facade.go`) for new code that emits logs to keep callers decoupled
     from a specific implementation (`zerolog`).
   - Quick API summary:
-    - Constructors: `NewLog(w, level) -> LoggerFacade`, `NewDefaultLog()`.
+    - Constructors: `adapter.NewLog(w io.Writer, level)` and `adapter.NewDefaultLog()`.
   - Context helpers: `ContextWithTrace`, `TraceIDFromContext`, `ContextWithLogger` (stores a `LoggerFacade`), `LoggerFromContext` (returns `LoggerFacade`), and `FromContext`.
     - Field helpers: `WithField`, `WithFields` (available on `LoggerFacade`).
     - Error logging: `LoggerFacade.Error(err error, msg string)` accepts a (possibly nil) `error` to include as the `error` field in the log payload. The `error` parameter is first to make inclusion explicit.

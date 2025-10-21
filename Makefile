@@ -5,6 +5,8 @@
 TESTPKGS := ./...
 TESTFLAGS ?=
 
+include examples.mk
+
 .PHONY: run-example
 
 # default log level for the example (can be overridden: `make run-example LOG_LEVEL=info`)

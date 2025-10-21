@@ -1,0 +1,179 @@
+### Health Check - Liveness Probe
+GET http://localhost:8080/health/live
+Accept: application/json
+
+> {%
+  // Testa se o endpoint retorna status HTTP 200 OK
+  client.test("Status code is 200", function() {
+    client.assert(response.status === 200);
+  });
+
+  // Testa se a resposta não está vazia
+  client.test("Response is not empty", function() {
+    client.assert(response.body.length > 0);
+  });
+%}
+
+### Health Check - Readiness Probe
+GET http://localhost:8080/health/ready
+Accept: application/json
+
+> {%
+  // Testa se o endpoint retorna status HTTP 200 OK
+  client.test("Status code is 200", function() {
+    client.assert(response.status === 200);
+  });
+
+  // Testa se a resposta não está vazia
+  client.test("Response is not empty", function() {
+    client.assert(response.body.length > 0);
+  });
+%}
+
+### Metrics Endpoint - Prometheus Format (util)
+GET http://localhost:8080/metrics
+Accept: text/plain
+
+> {%
+  // Testa se o endpoint de métricas retorna status HTTP 200 OK
+  client.test("Status is 200 OK", function() {
+    client.assert(response.status === 200);
+  });
+
+  // Testa se o Content-Type é texto plano (formato Prometheus)
+  client.test("Content-Type is Prometheus format", function() {
+    client.assert(response.contentType.mimeType.includes("text/plain"));
+  });
+
+  // Testa se a resposta contém metadados target_info do OpenTelemetry
+  client.test("Contains target_info metadata", function() {
+    client.assert(response.body.includes("target_info"));
+  });
+
+  // Testa se a resposta contém a label service="http-server"
+  client.test("Contains service label", function() {
+    client.assert(response.body.includes('service="http-server"'));
+  });
+
+  // Testa se a resposta contém a métrica http_requests_total (counter)
+  client.test("Contains http_requests_total counter", function() {
+    client.assert(response.body.includes("http_requests_total"));
+  });
+
+  // Testa se o counter possui as labels obrigatórias (method, path, status)
+  client.test("Counter has required labels (method, path, status)", function() {
+    client.assert(response.body.includes('method='));
+    client.assert(response.body.includes('path='));
+    client.assert(response.body.includes('status='));
+  });
+
+  client.test("Contains TOTVS Apps labels", function() {
+    client.assert(response.body.includes('platform="totvs.apps"'));
+    client.assert(response.body.includes('element_type="support"'));
+  });
+
+  // Store initial metrics
+  client.global.set("metrics_body", response.body);
+%}
+
+### Generate Traffic - Multiple Requests
+GET http://localhost:8080/health/live
+
+> {%
+  // Testa se o endpoint de health responde corretamente
+  client.test("Health endpoint responds", function() {
+    client.assert(response.status === 200);
+  });
+%}
+
+###
+GET http://localhost:8080/health/ready
+
+> {%
+  // Testa se o endpoint de readiness responde corretamente
+  client.test("Ready endpoint responds", function() {
+    client.assert(response.status === 200);
+  });
+%}
+
+### Verify Metrics After Traffic - Counter Incremented
+GET http://localhost:8080/metrics
+
+> {%
+  // Testa se as métricas foram atualizadas após os requests
+  client.test("Metrics updated after requests", function() {
+    const previousBody = client.global.get("metrics_body");
+    client.assert(response.body !== previousBody, "Metrics should have updated");
+  });
+
+  // Testa se o contador de requests aumentou (possui valores numéricos)
+  client.test("Request counter increased", function() {
+    // Regex: Captura linhas como "http_requests_total{labels} 42"
+    // Pattern: metric_name{key="value",...} number
+    const counterPattern = /http_requests_total\{[^}]*\}\s+(\d+)/g;
+    const matches = response.body.match(counterPattern);
+    client.assert(matches !== null && matches.length > 0, "Counter should have entries");
+  });
+
+  // Testa se existem métricas para os endpoints de health
+  client.test("Health endpoint metrics exist", function() {
+    const hasHealthLive = response.body.includes('path="/health/live"');
+    const hasHealthReady = response.body.includes('path="/health/ready"');
+    client.assert(hasHealthLive || hasHealthReady, "Should track health endpoint requests");
+  });
+
+  // Testa se todos os contadores possuem a label service
+  client.test("Counters have service label", function() {
+    const counterLines = response.body.split('\n').filter(line =>
+      line.includes('http_requests_total') && !line.startsWith('#')
+    );
+
+    counterLines.forEach(line => {
+      client.assert(line.includes('service="http-server"'),
+                   `Counter missing service label: ${line}`);
+    });
+  });
+%}
+
+### Final Validation - Prometheus Conventions
+GET http://localhost:8080/metrics
+
+> {%
+  // Testa se o counter segue a convenção do Prometheus (termina com _total)
+  client.test("Counter follows Prometheus naming (ends with _total)", function() {
+    client.assert(response.body.includes("http_requests_total"));
+  });
+
+  // Testa se as métricas estão formatadas corretamente (com comentários HELP e TYPE)
+  client.test("Metrics are properly formatted", function() {
+    // Check for HELP comments
+    client.assert(response.body.includes("# HELP"));
+    // Check for TYPE comments
+    client.assert(response.body.includes("# TYPE"));
+  });
+
+  // Testa se todas as métricas possuem as labels obrigatórias
+  client.test("All metrics have proper labels", function() {
+    // Regex: Captura linhas que começam com "http_requests_total{" (dados de métrica, não comentários)
+    // Pattern: ^http_requests_total\{ - inicia com o nome da métrica
+    const metricLinePattern = /^http_requests_total\{/;
+
+    const metricLines = response.body.split('\n').filter(line =>
+      line.match(metricLinePattern) && !line.startsWith('#')
+    );
+
+    client.assert(metricLines.length > 0, "Should have at least one metric line");
+
+    metricLines.forEach(line => {
+      client.assert(line.includes('method='), `Missing method label: ${line}`);
+      client.assert(line.includes('path='), `Missing path label: ${line}`);
+      client.assert(line.includes('status='), `Missing status label: ${line}`);
+      client.assert(line.includes('service='), `Missing service label: ${line}`);
+      client.assert(line.includes('platform="totvs.apps"'), `Missing platform label: ${line}`);
+      client.assert(line.includes('element_type="support"'), `Missing element_type label: ${line}`);
+    });
+  });
+
+  // Nota: metric_type e metric_class são per-metric (não aplicados pelo middleware HTTP)
+  // Para testar esses labels, seria necessário criar métricas manualmente com esses atributos
+%}

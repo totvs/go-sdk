@@ -16,6 +16,7 @@ type Issuer interface {
 }
 
 type Claims interface {
+	ClaimFullName() string
 	ClaimEmail() string
 	ClaimTenantIdpID() string
 	ClaimCompanyID() string
@@ -32,6 +33,7 @@ type IssuerBase struct {
 }
 
 type ClaimsBase struct {
+	FullName    string `json:"fullName,omitempty"`
 	NotBefore   int64  `json:"nbf,omitempty"`
 	ExpiresAt   int64  `json:"exp,omitempty"`
 	Issuer      string `json:"iss,omitempty"`
@@ -57,6 +59,13 @@ func (r IssuerBase) ClaimsBase(payload []byte, claims any) error {
 		return fmt.Errorf("JWT: failed to unmarshal claims: %v", err)
 	}
 	return nil
+}
+
+func (i ClaimsBase) ClaimFullName() string {
+	if i.FullName == "" {
+		return "-"
+	}
+	return i.FullName
 }
 
 func (i ClaimsBase) ClaimEmail() string {

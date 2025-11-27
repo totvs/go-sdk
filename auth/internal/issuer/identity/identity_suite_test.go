@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/totvs/go-sdk/issuer/identity"
+	"github.com/totvs/go-sdk/auth/internal/issuer/identity"
 )
 
 func TestIssuerIdentity(t *testing.T) {

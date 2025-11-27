@@ -8,7 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/totvs/go-sdk/issuer"
+	"github.com/totvs/go-sdk/auth/internal/issuer"
 )
 
 func TestIssuer(t *testing.T) {

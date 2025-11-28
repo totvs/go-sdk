@@ -16,6 +16,7 @@ type Issuer interface {
 }
 
 type Claims interface {
+	ClaimRoles() []string
 	ClaimFullName() string
 	ClaimEmail() string
 	ClaimTenantIdpID() string
@@ -33,17 +34,18 @@ type IssuerBase struct {
 }
 
 type ClaimsBase struct {
-	FullName    string `json:"fullName,omitempty"`
-	NotBefore   int64  `json:"nbf,omitempty"`
-	ExpiresAt   int64  `json:"exp,omitempty"`
-	Issuer      string `json:"iss,omitempty"`
-	Audience    string `json:"aud,omitempty"`
-	Subject     string `json:"sub,omitempty"`
-	IssuedAt    int64  `json:"iat,omitempty"`
-	ClientID    string `json:"client_id,omitempty"`
-	TenantIdpID string `json:"tenantIdpId,omitempty"`
-	CompanyID   string `json:"companyId,omitempty"`
-	Email       string `json:"email"`
+	FullName    string   `json:"fullName,omitempty"`
+	NotBefore   int64    `json:"nbf,omitempty"`
+	ExpiresAt   int64    `json:"exp,omitempty"`
+	Issuer      string   `json:"iss,omitempty"`
+	Audience    string   `json:"aud,omitempty"`
+	Subject     string   `json:"sub,omitempty"`
+	IssuedAt    int64    `json:"iat,omitempty"`
+	ClientID    string   `json:"client_id,omitempty"`
+	TenantIdpID string   `json:"tenantIdpId,omitempty"`
+	CompanyID   string   `json:"companyId,omitempty"`
+	Roles       []string `json:"roles,omitempty"`
+	Email       string   `json:"email"`
 }
 
 func (r IssuerBase) MatchIssuer(iss string) bool {
@@ -59,6 +61,13 @@ func (r IssuerBase) ClaimsBase(payload []byte, claims any) error {
 		return fmt.Errorf("JWT: failed to unmarshal claims: %v", err)
 	}
 	return nil
+}
+
+func (i ClaimsBase) ClaimRoles() []string {
+	if i.Roles == nil {
+		return []string{}
+	}
+	return i.Roles
 }
 
 func (i ClaimsBase) ClaimFullName() string {

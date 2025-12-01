@@ -8,7 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/totvs/go-sdk/auth/internal/issuer"
+	"github.com/totvs/go-sdk/auth/issuer"
 )
 
 func TestIssuer(t *testing.T) {
@@ -77,6 +77,8 @@ var _ = Describe("Test issuer", func() {
 			Expect(claims.ClaimClientID() == "-").To(BeTrue())
 			Expect(claims.ClaimAudience() == "-").To(BeTrue())
 			Expect(claims.ClaimIssuer() == "-").To(BeTrue())
+			Expect(claims.ClaimRoles()).To(BeEmpty())
+			Expect(claims.ClaimFullName() == "-").To(BeTrue())
 		})
 	})
 })

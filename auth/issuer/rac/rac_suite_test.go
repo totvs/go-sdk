@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/totvs/go-sdk/auth/internal/issuer/rac"
+	"github.com/totvs/go-sdk/auth/issuer/rac"
 )
 
 func TestIssuerRAC(t *testing.T) {

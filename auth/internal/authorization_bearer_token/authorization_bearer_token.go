@@ -1,4 +1,4 @@
-package issuer
+package authorization_bearer_token
 
 import (
 	"encoding/base64"
@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/totvs/go-sdk/auth/issuer"
 )
 
 type AuthorizationBearerToken struct {
-	Issuers []Issuer
+	Issuers []issuer.Issuer
 }
 
-func (a *AuthorizationBearerToken) ValidBearerToken(r *http.Request) (Claims, error) {
+func (a *AuthorizationBearerToken) IsValidBearerToken(r *http.Request) (issuer.Claims, error) {
 	authorization := r.Header.Get("Authorization")
 
 	if authorization != "" {
@@ -44,7 +46,7 @@ func (a *AuthorizationBearerToken) ValidBearerToken(r *http.Request) (Claims, er
 	return nil, fmt.Errorf("header authorization not found")
 }
 
-func (a *AuthorizationBearerToken) findIssuer(issuerClaim string) (Issuer, error) {
+func (a *AuthorizationBearerToken) findIssuer(issuerClaim string) (issuer.Issuer, error) {
 	for _, i := range a.Issuers {
 		if i.MatchIssuer(issuerClaim) {
 			return i, nil
@@ -53,7 +55,7 @@ func (a *AuthorizationBearerToken) findIssuer(issuerClaim string) (Issuer, error
 	return nil, fmt.Errorf("issuer not found")
 }
 
-func (a *AuthorizationBearerToken) validJWT(issuerClaim string, rawToken string) (Issuer, error) {
+func (a *AuthorizationBearerToken) validJWT(issuerClaim string, rawToken string) (issuer.Issuer, error) {
 	issuer, err := a.findIssuer(issuerClaim)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find issuer: %v", err)

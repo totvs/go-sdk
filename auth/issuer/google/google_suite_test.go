@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/totvs/go-sdk/auth/internal/issuer/google"
+	"github.com/totvs/go-sdk/auth/issuer/google"
 )
 
 func TestIssuerGoogle(t *testing.T) {

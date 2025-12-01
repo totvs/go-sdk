@@ -5,7 +5,7 @@ import (
 	"regexp"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/totvs/go-sdk/auth/internal/issuer"
+	"github.com/totvs/go-sdk/auth/issuer"
 )
 
 type racIssuer struct {

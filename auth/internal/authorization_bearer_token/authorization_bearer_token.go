@@ -113,6 +113,10 @@ func (a *AuthorizationBearerToken) splitAuthHeader(header string) (string, strin
 func (a *AuthorizationBearerToken) extractTokenFromCookie(r *http.Request) (string, error) {
 	cookie, err := r.Cookie("jwt.token")
 	if err != nil {
+		if err == http.ErrNoCookie {
+			return "", nil
+		}
+
 		return "", fmt.Errorf("failed to extract token from cookie: %v", err)
 	}
 	return cookie.Value, nil

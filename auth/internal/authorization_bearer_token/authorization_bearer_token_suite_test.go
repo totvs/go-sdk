@@ -59,6 +59,47 @@ var _ = Describe("Test package authorization bearer token", func() {
 			Expect(claims).To(BeNil())
 		})
 
+		It("Should be a valid Identity issuer from cookie header", func() {
+			claims := jwt.MapClaims{
+				"iss":         "*.fluig.io",
+				"sub":         "totvs@totvs.com.br",
+				"aud":         "fluig_authenticator_resource",
+				"exp":         time.Now().UTC().Add(time.Hour).Unix(),
+				"iat":         time.Now().UTC().Unix(),
+				"email":       "totvs@totvs.com.br",
+				"client_id":   "manager",
+				"tenantIdpId": "2d4c74cfac2e438b97f110b185530ecb",
+				"companyId":   "2d4c74cfac2e438b97f110b185530ecb",
+				"roles":       []string{"admin"},
+				"fullName":    "John Doe",
+			}
+
+			jwt, _ := generateJWT(claims)
+			request := &http.Request{
+				Method: "GET",
+				URL:    urlDefault,
+				Header: map[string][]string{
+					"Content-Type": {"application/json"},
+				},
+			}
+
+			request.AddCookie(&http.Cookie{Name: "jwt.token", Value: jwt})
+
+			issuerClaims, err := a.IsValidBearerToken(request)
+			if err != nil {
+				Fail("Failed to validate bearer token: " + err.Error())
+			}
+
+			Expect(issuerClaims.ClaimAudience() == "fluig_authenticator_resource").To(BeTrue())
+			Expect(issuerClaims.ClaimIssuer() == "*.fluig.io").To(BeTrue())
+			Expect(issuerClaims.ClaimTenantIdpID() == "2d4c74cfac2e438b97f110b185530ecb").To(BeTrue())
+			Expect(issuerClaims.ClaimCompanyID() == "2d4c74cfac2e438b97f110b185530ecb").To(BeTrue())
+			Expect(issuerClaims.ClaimClientID() == "manager").To(BeTrue())
+			Expect(issuerClaims.ClaimEmail() == "totvs@totvs.com.br").To(BeTrue())
+			Expect(issuerClaims.ClaimRoles()).To(Equal([]string{"admin"}))
+			Expect(issuerClaims.ClaimFullName() == "John Doe").To(BeTrue())
+		})
+
 		It("Should be a valid Identity issuer", func() {
 			request := &http.Request{
 				Method: "GET",

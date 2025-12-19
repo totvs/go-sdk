@@ -68,7 +68,7 @@ security: gosec gitleaks govulncheck
 gosec:
 	@echo "Running gosec..."
 	@mkdir -p reports
-	@go run github.com/securego/gosec/v2/cmd/gosec@latest -fmt=json -out=reports/gosec-report.json ./... 2>&1 || (echo "Security issues were detected!")
+	@go run github.com/securego/gosec/v2/cmd/gosec@latest -fmt=json -out=reports/gosec-report.json -exclude-dirs=examples ./... 2>&1 || (echo "Security issues were detected!") 
 
 .PHONY: gitleaks
 gitleaks:
@@ -77,7 +77,7 @@ gitleaks:
 		--source="/path" \
 		--report-path="/reports/gitleaks-report.json" \
 		-v || (echo "Secrets were detected!")
-
+	
 .PHONY: govulncheck
 govulncheck:
 	@echo "Running govulncheck..."

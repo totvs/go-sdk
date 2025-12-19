@@ -15,13 +15,24 @@ type AuthorizationBearerToken struct {
 }
 
 func (a *AuthorizationBearerToken) IsValidBearerToken(r *http.Request) (issuer.Claims, error) {
-	authorization := r.Header.Get("Authorization")
+	var token, authorization string
+	var err error
+
+	authorization = r.Header.Get("Authorization")
 
 	if authorization != "" {
-		token, err := a.extractTokenFromBearer(authorization)
+		token, err = a.extractTokenFromBearer(authorization)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		token, err = a.extractTokenFromCookie(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if token != "" {
 
 		payload, err := a.parseJWT(token)
 		if err != nil {
@@ -43,7 +54,7 @@ func (a *AuthorizationBearerToken) IsValidBearerToken(r *http.Request) (issuer.C
 		return iss.Claims(payload)
 	}
 
-	return nil, fmt.Errorf("header authorization not found")
+	return nil, fmt.Errorf("authorization token not found")
 }
 
 func (a *AuthorizationBearerToken) findIssuer(issuerClaim string) (issuer.Issuer, error) {
@@ -97,4 +108,16 @@ func (a *AuthorizationBearerToken) splitAuthHeader(header string) (string, strin
 		return "", "", fmt.Errorf("authorization header malformed (split size: %v)", len(s))
 	}
 	return s[0], s[1], nil
+}
+
+func (a *AuthorizationBearerToken) extractTokenFromCookie(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("jwt.token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("failed to extract token from cookie: %v", err)
+	}
+	return cookie.Value, nil
 }

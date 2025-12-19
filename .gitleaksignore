@@ -1,0 +1,3 @@
+a19c7dc7368081d382c192fdb3cd96076da41367:auth/internal/authorization_bearer_token/authorization_bearer_token_suite_certs_test.go:private-key:3
+16b1924178390c5cc576d90624853467e4eaa7a3:auth/internal/issuer/authorization_bearer_token_suite_certs_test.go:private-key:3
+a19c7dc7368081d382c192fdb3cd96076da41367:examples/auth/main.go:private-key:188

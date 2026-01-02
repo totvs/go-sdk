@@ -4,7 +4,10 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -189,21 +192,60 @@ func totvsMetricsExample() {
 
 	ctx := context.Background()
 
-	// Métrica técnica (Prometheus apenas, não vai para Carol)
 	techCounter := setup.Metrics.GetOrCreateCounter("http_requests_total", metrics.MetricTypeTech, metrics.MetricClassService)
 	techCounter.Add(ctx, 100)
 
-	// Métrica de negócio (enviada para Carol)
 	businessCounter := setup.Metrics.GetOrCreateCounter("business_orders_total", metrics.MetricTypeBusiness, metrics.MetricClassService)
 	businessCounter.Add(ctx, 50)
 
-	// Métrica de instância (CPU individual)
 	cpuGauge := setup.Metrics.GetOrCreateGauge("process_cpu_usage_percent", metrics.MetricTypeTech, metrics.MetricClassInstance)
 	cpuGauge.Set(ctx, 42.5)
 
 	log.Println("✓ TOTVS metrics example completed")
 	log.Println("  (Application-level labels: platform)")
 	log.Println("  (Per-metric labels: metric_type, metric_class)")
+}
+
+// ginServerExample demonstra um servidor Gin com métricas via Prometheus.
+func ginServerExample() {
+
+	// setup sdk
+	setup, err := adapter.NewDefaultMetrics(adapter.TOTVSMetricsConfig{
+		ServiceName: "gin-example",
+		Platform:    "totvs.apps",
+	})
+	if err != nil {
+		log.Fatalf("Failed to setup metrics: %v", err)
+	}
+	defer setup.Shutdown()
+
+	// cria métrica (counter)
+	requestCounter := setup.Metrics.GetOrCreateCounter("http_requests_total", metrics.MetricTypeTech, metrics.MetricClassService)
+
+	// instancia gin
+	r := gin.Default()
+
+	// cria middleware do gin dando inc na métrica
+	r.Use(func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		requestCounter.Add(c.Request.Context(), 1,
+			metrics.Attr("method", c.Request.Method),
+			metrics.Attr("path", c.FullPath()),
+			metrics.Attr("status", strconv.Itoa(c.Writer.Status())),
+			metrics.Attr("duration_ms", strconv.FormatInt(time.Since(start).Milliseconds(), 10)),
+		)
+	})
+
+	// instancia rota das métricas
+	r.GET("/metrics", gin.WrapH(setup.Handler()))
+
+	// endpoint simples pra passar pelo middleware
+	r.GET("/hello", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Hello, World!"})
+	})
+
+	r.Run(":8080")
 }
 
 // httpServerExample inicia um servidor HTTP com métricas via Prometheus.
@@ -268,8 +310,12 @@ func main() {
 	log.Println("\n8. TOTVS Metrics")
 	totvsMetricsExample()
 
-	log.Println("\n9. HTTP Server with Metrics (util + Prometheus)")
-	httpServerExample()
+	log.Println("\n9. Gin Server with Metrics")
+	ginServerExample()
+
+	// Uncomment to run standard HTTP server instead:
+	// log.Println("\n10. HTTP Server with Metrics (util + Prometheus)")
+	// httpServerExample()
 
 	log.Println("\n=== All examples completed ===")
 }

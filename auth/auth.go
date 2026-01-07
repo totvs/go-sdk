@@ -20,8 +20,8 @@ func HTTPAuthorizationBearerTokenMiddleware(authorizationBearerToken *authorizat
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, err := authorizationBearerToken.IsValidBearerToken(r)
 			if err != nil {
-				w.WriteHeader(http.StatusUnauthorized)
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusUnauthorized)
 				fmt.Fprintf(w, "{\"error\": \"%v\"}", err.Error())
 				return
 			}

@@ -119,6 +119,52 @@ func NewDefaultMetrics(cfg TOTVSMetricsConfig) (*DefaultMetricsSetup, error) {
 	}, nil
 }
 
+// NewMetricsWithRegistry creates a metrics setup using an existing Prometheus registry.
+// Use when integrating with apps that already have a registry (e.g., kuebbuilder controller-runtime).
+//
+// Example:
+//
+//	setup, err := adapter.NewMetricsWithRegistry(
+//	    ctrlmetrics.Registry,
+//	    adapter.TOTVSMetricsConfig{ServiceName: "my-operator", Platform: "totvs.apps"},
+//	)
+func NewMetricsWithRegistry(registry prometheus.Registerer, cfg TOTVSMetricsConfig) (*DefaultMetricsSetup, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid TOTVS configuration: %w", err)
+	}
+
+	exporter, err := otelprom.New(
+		otelprom.WithRegisterer(registry),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create prometheus exporter: %w", err)
+	}
+
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(exporter),
+	)
+
+	meter := provider.Meter(cfg.ServiceName)
+
+	defaultLabels := []mt.Attribute{
+		mt.Attr("platform", cfg.Platform),
+	}
+
+	metrics := backend.NewMetricsWithAttributes(meter, defaultLabels)
+
+	var reg *prometheus.Registry
+	if r, ok := registry.(*prometheus.Registry); ok {
+		reg = r
+	}
+
+	return &DefaultMetricsSetup{
+		Metrics:     metrics,
+		Registry:    reg,
+		provider:    provider,
+		serviceName: cfg.ServiceName,
+	}, nil
+}
+
 // NewMetricsWithProvider delegates to the internal OpenTelemetry backend with a custom provider.
 func NewMetricsWithProvider(provider metric.MeterProvider, serviceName string) mt.MetricsFacade {
 	return backend.NewMetricsWithProvider(provider, serviceName)

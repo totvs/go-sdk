@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	mt "github.com/totvs/go-sdk/metrics"
@@ -397,6 +398,180 @@ func TestIntegration(t *testing.T) {
 				// No assertions needed - if no panic occurred, the test passes
 
 			})
+
+		})
+
+	})
+
+	t.Run("CustomRegistry", func(t *testing.T) {
+
+		t.Run("Success", func(t *testing.T) {
+
+			// Arrange - Simulates controller-runtime or any app with existing registry
+			customRegistry := prometheus.NewRegistry()
+
+			// Use NewMetricsWithRegistry instead of NewDefaultMetrics
+			setup, err := adapter.NewMetricsWithRegistry(customRegistry, adapter.TOTVSMetricsConfig{
+				ServiceName: "custom-registry-test",
+				Platform:    "totvs.apps",
+			})
+			if err != nil {
+				t.Fatalf("failed to setup metrics with custom registry: %v", err)
+			}
+			defer setup.Shutdown()
+
+			ctx := context.Background()
+
+			// Create metrics
+			requestCounter := setup.Metrics.GetOrCreateCounter("custom_registry_requests_total", mt.MetricTypeTech, mt.MetricClassService)
+			memoryGauge := setup.Metrics.GetOrCreateGauge("custom_registry_memory_bytes", mt.MetricTypeTech, mt.MetricClassService)
+			durationHistogram := setup.Metrics.GetOrCreateHistogram("custom_registry_duration_seconds", mt.MetricTypeTech, mt.MetricClassService)
+
+			// Record some metrics
+			requestCounter.Inc(ctx,
+				mt.Attr("endpoint", "/api/test"),
+				mt.Attr("method", "GET"),
+				mt.Attr("status", "200"),
+			)
+
+			memoryGauge.Set(ctx, 1024*1024,
+				mt.Attr("type", "heap"),
+			)
+
+			durationHistogram.Record(ctx, 0.123,
+				mt.Attr("endpoint", "/api/test"),
+			)
+
+			// Setup HTTP server with custom registry
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
+
+			server := httptest.NewServer(mux)
+			defer server.Close()
+
+			time.Sleep(100 * time.Millisecond)
+
+			// Act - Fetch metrics from custom registry
+			resp, err := http.Get(server.URL + "/metrics")
+			if err != nil {
+				t.Fatalf("failed to fetch metrics: %v", err)
+			}
+			defer resp.Body.Close()
+
+			buf := make([]byte, 64*1024)
+			n, err := resp.Body.Read(buf)
+			if err != nil && err.Error() != "EOF" {
+				t.Fatalf("failed to read metrics response: %v", err)
+			}
+			output := string(buf[:n])
+
+			// Assert - Verify metrics are exposed via custom registry
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("expected status 200, got: %d", resp.StatusCode)
+			}
+
+			// Check counter
+			if !strings.Contains(output, "custom_registry_requests_total") {
+				t.Fatal("expected custom_registry_requests_total metric in output")
+			}
+
+			// Check gauge
+			if !strings.Contains(output, "custom_registry_memory_bytes") {
+				t.Fatal("expected custom_registry_memory_bytes metric in output")
+			}
+
+			// Check histogram
+			if !strings.Contains(output, "custom_registry_duration_seconds") {
+				t.Fatal("expected custom_registry_duration_seconds metric in output")
+			}
+
+			// Check platform label (from TOTVSMetricsConfig)
+			if !strings.Contains(output, `platform="totvs.apps"`) {
+				t.Fatal("expected platform label in output")
+			}
+
+			// Check custom labels
+			if !strings.Contains(output, `endpoint="/api/test"`) {
+				t.Fatal("expected endpoint label in output")
+			}
+
+			if !strings.Contains(output, `method="GET"`) {
+				t.Fatal("expected method label in output")
+			}
+
+		})
+
+		t.Run("MultipleMetricsInSameRegistry", func(t *testing.T) {
+
+			// Arrange - Simulates controller-runtime where multiple components share registry
+			sharedRegistry := prometheus.NewRegistry()
+
+			// Component 1: API metrics
+			apiSetup, err := adapter.NewMetricsWithRegistry(sharedRegistry, adapter.TOTVSMetricsConfig{
+				ServiceName: "api-component",
+				Platform:    "totvs.apps",
+			})
+			if err != nil {
+				t.Fatalf("failed to setup API metrics: %v", err)
+			}
+			defer apiSetup.Shutdown()
+
+			// Component 2: Worker metrics
+			workerSetup, err := adapter.NewMetricsWithRegistry(sharedRegistry, adapter.TOTVSMetricsConfig{
+				ServiceName: "worker-component",
+				Platform:    "totvs.apps",
+			})
+			if err != nil {
+				t.Fatalf("failed to setup worker metrics: %v", err)
+			}
+			defer workerSetup.Shutdown()
+
+			ctx := context.Background()
+
+			// Create metrics for both components
+			apiCounter := apiSetup.Metrics.GetOrCreateCounter("api_requests_total", mt.MetricTypeTech, mt.MetricClassService)
+			workerCounter := workerSetup.Metrics.GetOrCreateCounter("worker_jobs_total", mt.MetricTypeTech, mt.MetricClassService)
+
+			// Record metrics
+			apiCounter.Add(ctx, 10, mt.Attr("endpoint", "/api/users"))
+			workerCounter.Add(ctx, 5, mt.Attr("job_type", "email"))
+
+			// Setup HTTP server with shared registry
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.HandlerFor(sharedRegistry, promhttp.HandlerOpts{}))
+
+			server := httptest.NewServer(mux)
+			defer server.Close()
+
+			time.Sleep(100 * time.Millisecond)
+
+			// Act
+			resp, err := http.Get(server.URL + "/metrics")
+			if err != nil {
+				t.Fatalf("failed to fetch metrics: %v", err)
+			}
+			defer resp.Body.Close()
+
+			buf := make([]byte, 64*1024)
+			n, _ := resp.Body.Read(buf)
+			output := string(buf[:n])
+
+			// Assert - Both metrics should be in the same output
+			if !strings.Contains(output, "api_requests_total") {
+				t.Fatal("expected api_requests_total in shared registry output")
+			}
+
+			if !strings.Contains(output, "worker_jobs_total") {
+				t.Fatal("expected worker_jobs_total in shared registry output")
+			}
+
+			if !strings.Contains(output, `endpoint="/api/users"`) {
+				t.Fatal("expected API endpoint label in output")
+			}
+
+			if !strings.Contains(output, `job_type="email"`) {
+				t.Fatal("expected worker job_type label in output")
+			}
 
 		})
 

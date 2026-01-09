@@ -9,14 +9,29 @@ Resumo
 - Helpers de trace e propagation em `trace/`.
 - Exemplos em `examples/` e alvos úteis no `Makefile`.
 
-Estrutura principal
+## Setup inicial
+
+- Após clonar o repositório, execute:
+
+  ```bash
+  make setup          # Instala lefthook via go install
+  # ou
+  make setup ASDF=true  # Instala lefthook via asdf
+  ```
+
+- Isso configura git hooks automáticos definidos em [`lefthook.yml`](lefthook.yml)
+- Para desabilitar hooks temporariamente: `LEFTHOOK=0 git commit -m "message"`
+- Para pular um hook específico: `LEFTHOOK_EXCLUDE=test git push`
+
+## Estrutura principal
+
 - `log/` — pacote de fachada: `facade.go`, testes e documentação (`log/README.md`).
   - `log/adapter/` — adaptadores públicos que retornam `LoggerFacade` (ex.: `NewLog`, `NewDefaultLog`).
   - `log/internal/` — implementações concretas (por exemplo `internal/backend/zerolog.go`).
   - `log/middleware/`, `log/util/` — middlewares e helpers relacionados a logging.
 - `trace/` — helpers de propagation (`ContextWithTrace`, `TraceIDFromContext`, `GenerateTraceID`).
 - `examples/` — exemplos executáveis (ex.: `examples/logger/main.go`).
-- `Makefile` — targets comuns: `test`, `test-v`, `test-race`, `cover`, `cover-html`, `fmt`, `vet`, `build`, `tidy`, `ci`, `run-example`.
+- `Makefile` — targets comuns: `test`, `test-v`, `test-race`, `cover`, `cover-html`, `fmt`, `vet`, `build`, `tidy`, `ci`, `setup`, `run-example`.
 
 Logging: API rápida
 - Construtores (adapter):

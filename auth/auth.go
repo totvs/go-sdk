@@ -2,7 +2,7 @@ package auth
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"slices"
 
@@ -22,7 +22,9 @@ func HTTPAuthorizationBearerTokenMiddleware(authorizationBearerToken *authorizat
 			if err != nil {
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.WriteHeader(http.StatusUnauthorized)
-				fmt.Fprintf(w, "{\"error\": \"%v\"}", err.Error())
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": err.Error(),
+				})
 				return
 			}
 

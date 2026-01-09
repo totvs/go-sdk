@@ -1,0 +1,32 @@
+# Lefthook configuration for Git hooks
+# Install: lefthook install
+# Run manually: lefthook run pre-commit
+glob_matcher: doublestar
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: fmt
+      glob: "**/{*.go,go.mod,go.sum}"
+      run: make fmt
+      stage_fixed: true
+    - name: vet
+      glob: "**/{*.go,go.mod,go.sum}"
+      run: make vet
+    - name: tidy
+      glob: "{go.mod,go.sum}"
+      run: make tidy
+      stage_fixed: true
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: security
+      glob: "**/{*.go,go.mod,go.sum}"
+      run: command -v gosec >/dev/null && gosec -quiet ./... || echo "[gosec] skipped"
+    - name: test
+      glob: "**/{*.go,go.mod,go.sum}"
+      run: make test
+
+# Skip hooks with: LEFTHOOK=0 git commit -m "message"
+# Skip specific command: LEFTHOOK_EXCLUDE=test git commit -m "message"

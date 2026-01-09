@@ -503,36 +503,31 @@ func TestIntegration(t *testing.T) {
 
 		t.Run("MultipleMetricsInSameRegistry", func(t *testing.T) {
 
-			// Arrange - Simulates controller-runtime where multiple components share registry
+			// Arrange - Simulates controller-runtime where multiple components share same registry
+			// In real scenarios like Kubernetes operators, you should create ONE setup per registry
+			// and share the Metrics facade across components
 			sharedRegistry := prometheus.NewRegistry()
 
-			// Component 1: API metrics
-			apiSetup, err := adapter.NewMetricsWithRegistry(sharedRegistry, adapter.TOTVSMetricsConfig{
-				ServiceName: "api-component",
+			// Create single setup with the shared registry
+			setup, err := adapter.NewMetricsWithRegistry(sharedRegistry, adapter.TOTVSMetricsConfig{
+				ServiceName: "multi-component-service",
 				Platform:    "totvs.apps",
 			})
 			if err != nil {
-				t.Fatalf("failed to setup API metrics: %v", err)
+				t.Fatalf("failed to setup metrics: %v", err)
 			}
-			defer apiSetup.Shutdown()
-
-			// Component 2: Worker metrics
-			workerSetup, err := adapter.NewMetricsWithRegistry(sharedRegistry, adapter.TOTVSMetricsConfig{
-				ServiceName: "worker-component",
-				Platform:    "totvs.apps",
-			})
-			if err != nil {
-				t.Fatalf("failed to setup worker metrics: %v", err)
-			}
-			defer workerSetup.Shutdown()
+			defer setup.Shutdown()
 
 			ctx := context.Background()
 
-			// Create metrics for both components
-			apiCounter := apiSetup.Metrics.GetOrCreateCounter("api_requests_total", mt.MetricTypeTech, mt.MetricClassService)
-			workerCounter := workerSetup.Metrics.GetOrCreateCounter("worker_jobs_total", mt.MetricTypeTech, mt.MetricClassService)
+			// Different components use the same Metrics facade to create different metrics
+			// Component 1: API metrics
+			apiCounter := setup.Metrics.GetOrCreateCounter("api_requests_total", mt.MetricTypeTech, mt.MetricClassService)
 
-			// Record metrics
+			// Component 2: Worker metrics
+			workerCounter := setup.Metrics.GetOrCreateCounter("worker_jobs_total", mt.MetricTypeTech, mt.MetricClassService)
+
+			// Record metrics from different components
 			apiCounter.Add(ctx, 10, mt.Attr("endpoint", "/api/users"))
 			workerCounter.Add(ctx, 5, mt.Attr("job_type", "email"))
 
@@ -558,11 +553,11 @@ func TestIntegration(t *testing.T) {
 
 			// Assert - Both metrics should be in the same output
 			if !strings.Contains(output, "api_requests_total") {
-				t.Fatal("expected api_requests_total in shared registry output")
+				t.Fatalf("expected api_requests_total in shared registry output. Output:\n%s", output)
 			}
 
 			if !strings.Contains(output, "worker_jobs_total") {
-				t.Fatal("expected worker_jobs_total in shared registry output")
+				t.Fatalf("expected worker_jobs_total in shared registry output. Output:\n%s", output)
 			}
 
 			if !strings.Contains(output, `endpoint="/api/users"`) {

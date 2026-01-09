@@ -1,6 +1,6 @@
 ## Makefile para facilitar tarefas comuns do projeto go-sdk
 
-.PHONY: test test-v test-race cover cover-html fmt vet build tidy ci
+.PHONY: test test-v test-race cover cover-html fmt vet build tidy ci setup
 
 TESTPKGS := ./...
 TESTFLAGS ?=
@@ -52,6 +52,20 @@ tidy:
 
 ## Target para CI: formata, analisa e testa
 ci: fmt vet test
+
+## Setup: instala lefthook e configura git hooks
+# Use ASDF=true para instalar via asdf ao invés de go install
+ASDF ?= false
+
+setup:
+ifeq ($(ASDF),true)
+	@asdf install
+	@asdf exec lefthook install
+else
+	@go install github.com/evilmartians/lefthook@latest
+	@lefthook install
+endif
+	@echo "Git hooks configured"
 
 # Run the example in ./examples/logger (default: DEBUG level)
 # You can override the level by calling e.g. `make run-example LOG_LEVEL=info`

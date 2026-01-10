@@ -16,18 +16,18 @@ type googleClaims struct {
 	issuer.ClaimsBase
 }
 
-func NewGoogle(jwks_url string) issuer.Issuer {
+// NewGoogle creates a new Google OAuth issuer that validates tokens against the provided JWKS URL.
+func NewGoogle(jwksURL string) issuer.Issuer {
 	var g googleIssuer
-	g.Ctx = context.TODO()
 	g.IssuerRegex = regexp.MustCompile(`(?m)^https://accounts\.google\.com$`)
-	g.Jwks_url = jwks_url
+	g.JwksURL = jwksURL
 	g.Verifier = oidc.NewVerifier("",
-		oidc.NewRemoteKeySet(g.Ctx, g.Jwks_url),
+		oidc.NewRemoteKeySet(context.Background(), jwksURL),
 		&oidc.Config{
 			InsecureSkipSignatureCheck: false,
 			SkipExpiryCheck:            false,
 			SkipClientIDCheck:          true,
-			SkipIssuerCheck:            true, // Não verifica pois isso é feito via regex
+			SkipIssuerCheck:            true, // Issuer is validated via regex
 		})
 
 	return &g

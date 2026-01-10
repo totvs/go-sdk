@@ -118,12 +118,18 @@ func (l implLogger) Error(err error) lg.LogEvent {
 	return newZerologEvent(ev)
 }
 
-// NewLog cria um LoggerFacade baseado em zerolog que escreve em `w` com o nível informado.
+// NewLog creates a LoggerFacade backed by zerolog that writes JSON to w at the given level.
+// If w is nil, it defaults to io.Discard to prevent panics.
 func NewLog(w io.Writer, level lg.Level) lg.LoggerFacade {
+	if w == nil {
+		w = io.Discard
+	}
 	return newLogger(w, level)
 }
 
-// NewDefaultLog cria um adapter zerolog com configurações padrão (stdout, LOG_LEVEL).
+// NewDefaultLog creates a zerolog-backed LoggerFacade with default settings (stdout, LOG_LEVEL env).
+// Supported LOG_LEVEL values: DEBUG, INFO, WARN, WARNING, ERROR (case-insensitive).
+// Defaults to INFO if LOG_LEVEL is not set or invalid.
 func NewDefaultLog() lg.LoggerFacade {
 	lvl := lg.InfoLevel
 	if s := os.Getenv("LOG_LEVEL"); s != "" {

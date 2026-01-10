@@ -16,18 +16,18 @@ type identityClaims struct {
 	issuer.ClaimsBase
 }
 
-func NewIdentity(jwks_url string) issuer.Issuer {
+// NewIdentity creates a new Fluig Identity issuer that validates tokens against the provided JWKS URL.
+func NewIdentity(jwksURL string) issuer.Issuer {
 	var i identityIssuer
-	i.Ctx = context.TODO()
 	i.IssuerRegex = regexp.MustCompile(`(?m)^\*\.fluig\.io$`)
-	i.Jwks_url = jwks_url
+	i.JwksURL = jwksURL
 	i.Verifier = oidc.NewVerifier("",
-		oidc.NewRemoteKeySet(i.Ctx, i.Jwks_url),
+		oidc.NewRemoteKeySet(context.Background(), jwksURL),
 		&oidc.Config{
 			InsecureSkipSignatureCheck: false,
 			SkipExpiryCheck:            false,
 			SkipClientIDCheck:          true,
-			SkipIssuerCheck:            true, // Não verifica pois isso é feito via regex
+			SkipIssuerCheck:            true, // Issuer is validated via regex
 		})
 
 	return &i

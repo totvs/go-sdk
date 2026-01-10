@@ -1,3 +1,14 @@
+// Package metrics provides a metrics abstraction (facade) for application instrumentation.
+// Implementations can use OpenTelemetry, Prometheus, or other backends without
+// coupling consumers to specific libraries.
+//
+// Quick start:
+//
+//	setup, _ := adapter.NewPrometheusMetrics("my-service")
+//	counter := setup.Metrics.GetOrCreateCounter("requests_total", MetricTypeTech, MetricClassService)
+//	counter.Inc(ctx)
+//
+// Thread safety: All operations are safe for concurrent use.
 package metrics
 
 import (
@@ -5,18 +16,19 @@ import (
 	"sync/atomic"
 )
 
-// Public types and interfaces
-
-// Attribute represents a key-value pair for metric attributes.
+// Attribute represents a key-value pair for metric attributes (labels).
 type Attribute struct {
 	Key   string
 	Value any
 }
 
+// MetricType defines the destination/purpose of a metric.
 type MetricType string
 
 const (
-	MetricTypeTech     MetricType = "tech"
+	// MetricTypeTech indicates technical metrics (Prometheus only).
+	MetricTypeTech MetricType = "tech"
+	// MetricTypeBusiness indicates business metrics (sent to Carol).
 	MetricTypeBusiness MetricType = "bus"
 )
 
@@ -24,34 +36,52 @@ const (
 type MetricClass string
 
 const (
-	MetricClassInstance MetricClass = "instance" // Metrics scoped to individual instances
-	MetricClassService  MetricClass = "service"  // Metrics aggregated at service level
+	// MetricClassInstance scopes metrics to individual instances (e.g., per-pod CPU).
+	MetricClassInstance MetricClass = "instance"
+	// MetricClassService scopes metrics to the service level (aggregated).
+	MetricClassService MetricClass = "service"
 )
 
-// Counter is a metric that only increases.
+// Counter is a metric that only increases (e.g., request count, errors).
 type Counter interface {
+	// Add increments the counter by the given non-negative value.
 	Add(ctx context.Context, incr int64, attrs ...Attribute)
+	// Inc increments the counter by 1.
 	Inc(ctx context.Context, attrs ...Attribute)
 }
 
-// Gauge is a metric that can increase or decrease.
+// Gauge is a metric that can increase or decrease (e.g., memory usage, connections).
 type Gauge interface {
+	// Set records an absolute value for the gauge.
 	Set(ctx context.Context, value float64, attrs ...Attribute)
+	// Add is provided for interface compatibility but has a KNOWN LIMITATION:
+	// the OpenTelemetry backend does NOT support atomic add operations.
+	// It records the increment value directly, NOT adding to current value.
+	// Use Set() with the computed absolute value for correct behavior.
+	//
+	// Deprecated: Use Set() with the computed absolute value instead.
 	Add(ctx context.Context, incr float64, attrs ...Attribute)
 }
 
-// Histogram records distributions of values.
+// Histogram records distributions of values (e.g., latency, request sizes).
 type Histogram interface {
+	// Record adds a value to the histogram distribution.
 	Record(ctx context.Context, value float64, attrs ...Attribute)
 }
 
-// MetricsFacade é a abstração pública para métricas usada pela aplicação.
-// Implementações podem usar OpenTelemetry ou qualquer outra biblioteca no futuro.
+// MetricsFacade is the public abstraction for metrics used by applications.
+// Implementations can use OpenTelemetry or other libraries.
+// All methods are safe for concurrent use.
 type MetricsFacade interface {
+	// WithAttributes returns a new facade with additional base attributes.
 	WithAttributes(attrs ...Attribute) MetricsFacade
+	// WithAttributesFromContext extracts attributes from context (e.g., trace ID).
 	WithAttributesFromContext(ctx context.Context) MetricsFacade
+	// GetOrCreateCounter returns an existing counter or creates a new one.
 	GetOrCreateCounter(name string, metricType MetricType, metricClass MetricClass) Counter
+	// GetOrCreateGauge returns an existing gauge or creates a new one.
 	GetOrCreateGauge(name string, metricType MetricType, metricClass MetricClass) Gauge
+	// GetOrCreateHistogram returns an existing histogram or creates a new one.
 	GetOrCreateHistogram(name string, metricType MetricType, metricClass MetricClass) Histogram
 }
 

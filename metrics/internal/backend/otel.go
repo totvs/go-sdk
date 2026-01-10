@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -43,12 +44,18 @@ func (g *otelGauge) Set(ctx context.Context, value float64, attrs ...mt.Attribut
 	g.gauge.Record(ctx, value, metric.WithAttributes(combinedAttrs...))
 }
 
+// Add is provided for interface compatibility but has a KNOWN LIMITATION:
+// OpenTelemetry gauges do not support atomic add operations. This method
+// records the increment value directly, NOT adding to the current value.
+// For proper gauge semantics, use Set() with the absolute value instead.
+//
+// Deprecated: Use Set() with the computed absolute value for correct behavior.
 func (g *otelGauge) Add(ctx context.Context, incr float64, attrs ...mt.Attribute) {
 	if g.gauge == nil {
 		return // no-op if gauge creation failed
 	}
-	// Note: OpenTelemetry gauges don't have native Add, so we'll need to track state
-	// For now, we'll just record the increment as-is
+	// WARNING: This does NOT add to current value - it records incr as-is.
+	// OTel gauges are "last value wins" and don't support atomic increments.
 	combinedAttrs := combineAttributes(g.attrs, attrs)
 	g.gauge.Record(ctx, incr, metric.WithAttributes(combinedAttrs...))
 }
@@ -114,6 +121,7 @@ func buildKey(metricKind, name string, metricType mt.MetricType, metricClass mt.
 // getOrCreate is a generic helper for the cache-and-create pattern used by all metric types.
 // It checks the cache first, and if the metric doesn't exist, calls the creator function
 // to instantiate it, stores it in the cache, and returns it.
+// Uses LoadOrStore for atomic cache operations to prevent race conditions.
 func getOrCreate[T any](cache *sync.Map, key string, creator func() (T, error)) T {
 	// Check if metric already exists in cache (read-optimized, no lock)
 	if cached, ok := cache.Load(key); ok {
@@ -121,15 +129,22 @@ func getOrCreate[T any](cache *sync.Map, key string, creator func() (T, error)) 
 	}
 
 	// Cache miss: create new metric instance lazily
-	metric, err := creator()
+	newMetric, err := creator()
 	if err != nil {
+		// Log error to stderr - we don't have access to the log package here
+		// to avoid circular dependencies
+		fmt.Fprintf(os.Stderr, "[metrics] failed to create metric %s: %v\n", key, err)
 		var zero T  // Initialize zero value of type T
 		return zero // Return no-op metric on error
 	}
 
-	// Store new instance in cache for future calls (singleton pattern)
-	cache.Store(key, metric)
-	return metric
+	// Use LoadOrStore for atomic operation - if another goroutine stored first,
+	// we return their value and discard ours (safe because metrics are idempotent)
+	actual, loaded := cache.LoadOrStore(key, newMetric)
+	if loaded {
+		return actual.(T) // Another goroutine won the race, use their instance
+	}
+	return newMetric
 }
 
 func (m *implMetrics) GetOrCreateCounter(name string, metricType mt.MetricType, metricClass mt.MetricClass) mt.Counter {

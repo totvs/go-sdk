@@ -1,6 +1,8 @@
+// Package authorization_bearer_token provides JWT bearer token validation for HTTP requests.
 package authorization_bearer_token
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -46,9 +48,9 @@ func (a *AuthorizationBearerToken) IsValidBearerToken(r *http.Request) (issuer.C
 			return nil, fmt.Errorf("oidc: failed to unmarshal claim issuer only: %v", err)
 		}
 
-		iss, err := a.validJWT(i.Issuer, token)
+		iss, err := a.validJWT(r.Context(), i.Issuer, token)
 		if err != nil {
-			return nil, fmt.Errorf("failed to verify JWT: %v", err.Error())
+			return nil, fmt.Errorf("failed to verify JWT: %w", err)
 		}
 
 		return iss.Claims(payload)
@@ -66,13 +68,13 @@ func (a *AuthorizationBearerToken) findIssuer(issuerClaim string) (issuer.Issuer
 	return nil, fmt.Errorf("issuer not found")
 }
 
-func (a *AuthorizationBearerToken) validJWT(issuerClaim string, rawToken string) (issuer.Issuer, error) {
+func (a *AuthorizationBearerToken) validJWT(ctx context.Context, issuerClaim string, rawToken string) (issuer.Issuer, error) {
 	issuer, err := a.findIssuer(issuerClaim)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find issuer: %v", err)
+		return nil, fmt.Errorf("failed to find issuer: %w", err)
 	}
 
-	_, err = issuer.Verify(rawToken)
+	_, err = issuer.Verify(ctx, rawToken)
 	if err != nil {
 		return nil, err
 	}

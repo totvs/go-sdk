@@ -1,3 +1,25 @@
+// Package log provides a logging abstraction (facade) to decouple application code
+// from specific logging implementations like zerolog.
+//
+// Quick start:
+//
+//	import (
+//	    "github.com/totvs/go-sdk/log"
+//	    "github.com/totvs/go-sdk/log/adapter"
+//	)
+//
+//	lg := adapter.NewDefaultLog()
+//	log.SetGlobal(lg)
+//	log.Info().Str("key", "value").Msg("hello world")
+//
+// Key concepts:
+//   - LoggerFacade: Main interface for creating loggers with fields
+//   - LogEvent: Fluent interface for building individual log entries
+//   - Global logger: Thread-safe package-level logger via SetGlobal/GetGlobal
+//   - Context injection: Store/retrieve loggers via ContextWithLogger/FromContext
+//
+// Thread safety: All operations are safe for concurrent use. The global logger
+// uses sync/atomic.Value internally.
 package log
 
 import (
@@ -5,49 +27,61 @@ import (
 	"sync/atomic"
 )
 
-// LogEvent é a interface fluente para construir logs encadeados (similar a zerolog.Event).
-// Mantemos essa interface aqui para não expor zerolog diretamente aos consumidores.
+// LogEvent is the fluent interface for building chained log entries.
+// It mirrors zerolog.Event without exposing zerolog directly to consumers.
 type LogEvent interface {
+	// Str adds a string field.
 	Str(k, v string) LogEvent
+	// Int adds an int field.
 	Int(k string, v int) LogEvent
+	// Int64 adds an int64 field.
 	Int64(k string, v int64) LogEvent
+	// Uint adds a uint field.
 	Uint(k string, v uint) LogEvent
+	// Uint64 adds a uint64 field.
 	Uint64(k string, v uint64) LogEvent
+	// Bool adds a boolean field.
 	Bool(k string, v bool) LogEvent
+	// Float32 adds a float32 field.
 	Float32(k string, v float32) LogEvent
+	// Float64 adds a float64 field.
 	Float64(k string, v float64) LogEvent
+	// Interface adds a field with any type (uses reflection).
 	Interface(k string, v interface{}) LogEvent
+	// Err adds an error field.
 	Err(err error) LogEvent
+	// Msg emits the log entry with the given message.
 	Msg(msg string)
+	// Msgf emits the log entry with a formatted message.
 	Msgf(format string, args ...interface{})
+	// Write implements io.Writer for use with standard log package.
 	Write(p []byte) (int, error)
 }
 
-// LoggerFacade é a abstração pública para logging usada pela aplicação.
-// Implementações podem usar zerolog (via o adaptador abaixo) ou qualquer
-// outra biblioteca no futuro.
+// LoggerFacade is the public abstraction for logging used by applications.
+// Implementations can use zerolog (via adapter) or other libraries.
+// All methods are safe for concurrent use.
 type LoggerFacade interface {
+	// WithField returns a new logger with an additional field.
 	WithField(k string, v interface{}) LoggerFacade
+	// WithFields returns a new logger with multiple additional fields.
 	WithFields(fields map[string]interface{}) LoggerFacade
+	// WithTraceFromContext returns a new logger with trace_id from context.
 	WithTraceFromContext(ctx context.Context) LoggerFacade
 
-	// Event builders for fluent logs. These return an Event that can be
-	// chained (Str/Float64/Interface/Err/Msg...). Use these when you prefer
-	// the zerolog-like fluent API.
+	// Debug returns a LogEvent for debug-level logging.
 	Debug() LogEvent
+	// Info returns a LogEvent for info-level logging.
 	Info() LogEvent
+	// Warn returns a LogEvent for warn-level logging.
 	Warn() LogEvent
-	// Error accepts an optional error that will be attached to the event and
-	// returns a LogEvent for chaining.
+	// Error returns a LogEvent for error-level logging.
+	// If err is non-nil, it will be included as the "error" field.
 	Error(err error) LogEvent
 }
 
-// defaultAdapter is a minimal in-package adapter used as the package default.
-// It wraps the internal `loggerImpl` so the package can initialize a sane
-// default logger without depending on external adapter packages.
-// NOTE: concrete implementations live in separate packages (for example
-// `log/impl` or `log/adapter`). The package provides a small no-op default
-// implementation used as a safe fallback when no global logger is configured.
+// Note: concrete implementations live in log/adapter and log/internal/backend.
+// The package provides a no-op fallback when no global logger is configured.
 
 // Level represents a logging level independent from concrete implementations
 // so callers don't need to import zerolog directly.

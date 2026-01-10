@@ -17,18 +17,18 @@ type racClaims struct {
 	TenantIdpID string `json:"http://www.tnf.com/identity/claims/tenantId"`
 }
 
-func NewRac(jwks_url string) issuer.Issuer {
+// NewRac creates a new TOTVS RAC issuer that validates tokens against the provided JWKS URL.
+func NewRac(jwksURL string) issuer.Issuer {
 	var r racIssuer
-	r.Ctx = context.TODO()
 	r.IssuerRegex = regexp.MustCompile(`(?m)^https://.+\.rac\..*totvs\.app/totvs\.rac$`)
-	r.Jwks_url = jwks_url
+	r.JwksURL = jwksURL
 	r.Verifier = oidc.NewVerifier("",
-		oidc.NewRemoteKeySet(r.Ctx, r.Jwks_url),
+		oidc.NewRemoteKeySet(context.Background(), jwksURL),
 		&oidc.Config{
 			InsecureSkipSignatureCheck: false,
 			SkipExpiryCheck:            false,
 			SkipClientIDCheck:          true,
-			SkipIssuerCheck:            true, // Não verifica pois isso é feito via regex
+			SkipIssuerCheck:            true, // Issuer is validated via regex
 		})
 
 	return &r

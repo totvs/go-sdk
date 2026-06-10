@@ -7,6 +7,7 @@ Resumo
   concretas (por exemplo `zerolog`).
 - Implementações concretas ficam em `log/internal` (não exportadas).
 - Helpers de trace e propagation em `trace/`.
+- Helpers Kubernetes em `kubernetes/status/` (status padronizado baseado em KStatus) e `utils/kubernetes/transmitter/` (transmitter genérico de CRDs).
 - Exemplos em `examples/` e alvos úteis no `Makefile`.
 
 ## Setup inicial
@@ -30,6 +31,9 @@ Resumo
   - `log/internal/` — implementações concretas (por exemplo `internal/backend/zerolog.go`).
   - `log/middleware/`, `log/util/` — middlewares e helpers relacionados a logging.
 - `trace/` — helpers de propagation (`ContextWithTrace`, `TraceIDFromContext`, `GenerateTraceID`).
+- `kubernetes/status/` — helpers para leitura/escrita de `metav1.Condition`,
+  integração com KStatus oficial e geração de `Summary` padronizado.
+- `utils/kubernetes/transmitter/` — transmitter genérico para publicar status de CRDs.
 - `examples/` — exemplos executáveis (ex.: `examples/logger/main.go`).
 - `Makefile` — targets comuns: `test`, `test-v`, `test-race`, `cover`, `cover-html`, `fmt`, `vet`, `build`, `tidy`, `ci`, `setup`, `run-example`.
 
@@ -43,6 +47,26 @@ Logging: API rápida
 - Helpers de campos: `WithField`, `WithFields` (disponíveis no `LoggerFacade`).
 - Erros: use `LoggerFacade.Error(err)` seguido de `Msg`/`Msgf` para incluir o campo `error` no payload. Ex.: `f.Error(err).Msg("failed")` ou `f.WithFields(...).Error(err).Msgf("failed %s", name)`.
 - Globais/atalhos: `log.SetGlobal(l)`, `log.GetGlobal()` e helpers de nível `log.Debug()/Info()/Warn()/Error(err)` que retornam um `LogEvent` fluente.
+
+Kubernetes status: API rápida
+
+- Escrita de conditions:
+  - `status.MarkReady(&conditions, gen, status.Reasons.Reconciled, "ready")`
+  - `status.MarkReconciling(&conditions, gen, status.Reasons.Reconciling, "installing...")`
+  - `status.MarkWaiting(&conditions, gen, status.Reasons.PreconditionNotMet, "awaiting dependency")`
+  - `status.MarkStalled(&conditions, gen, status.Reasons.DependencyNotFound, "CRD not found")`
+  - `status.MarkTerminating(&conditions, gen, "terminating")`
+- Leitura/normalização:
+  - `status.SummaryFromObject(obj)` — computa `Summary{KStatus, State, Severity, Reason, Message}` on-the-fly.
+  - `status.SummaryFromUnstructured(u)` — variante para dynamic client / Unstructured.
+  - `status.SummaryFromObject(obj, status.WithSummaryMapping(domainMapping))` — injeta mapeamento de domínio.
+  - `status.NotFoundSummary(reason, message)` — Summary para recurso ausente no cluster.
+  - `status.Compute(obj)` / `status.ComputeFromUnstructured(u)` — KStatus puro sem Summary.
+- Reasons embutidos:
+  - Core: `status.Reasons.Reconciled`, `.Reconciling`, `.Terminating`, `.Unknown`
+  - Common: `status.Reasons.DependencyNotFound`, `.DependencyUnavailable`, `.InvalidConfiguration`, `.PermissionDenied`, `.Conflict`, `.Timeout`, `.PreconditionNotMet`
+  - Domain reasons (ex: `"PendingApproval"`) são definidos no consumer, injetados via `WithSummaryMapping`.
+- Documentação detalhada: `kubernetes/status/README.md`
 
 Adicionando um adapter
 - Para suportar outra biblioteca, adicione um adaptador em `log/adapter/` que construa/retorne um `log.LoggerFacade`.
@@ -77,4 +101,3 @@ Exemplos e documentação adicional
 
 Licença e contato
 - Ver `LICENSE` (se presente) e abra issues/pull requests para contribuições.
-

@@ -50,13 +50,13 @@ Logging: API rápida
 
 Kubernetes status: API rápida
 
-- Escrita de conditions (operator/controller):
+- Escrita de conditions:
   - `status.MarkReady(&conditions, gen, status.Reasons.Reconciled, "ready")`
   - `status.MarkReconciling(&conditions, gen, status.Reasons.Reconciling, "installing...")`
-  - `status.MarkWaiting(&conditions, gen, "PendingApproval", "awaiting approval")` — domain reason
+  - `status.MarkWaiting(&conditions, gen, status.Reasons.PreconditionNotMet, "awaiting dependency")`
   - `status.MarkStalled(&conditions, gen, status.Reasons.DependencyNotFound, "CRD not found")`
   - `status.MarkTerminating(&conditions, gen, "terminating")`
-- Leitura/normalização (qualquer consumidor):
+- Leitura/normalização:
   - `status.SummaryFromObject(obj)` — computa `Summary{KStatus, State, Severity, Reason, Message}` on-the-fly.
   - `status.SummaryFromUnstructured(u)` — variante para dynamic client / Unstructured.
   - `status.SummaryFromObject(obj, status.WithSummaryMapping(domainMapping))` — injeta mapeamento de domínio.

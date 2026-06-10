@@ -1,99 +1,68 @@
-## Makefile para facilitar tarefas comuns do projeto go-sdk
+SHELL := /bin/bash
 
-.PHONY: test test-v test-race cover cover-html fmt vet build tidy ci setup
+HACK_DIR := hack/automations
 
-TESTPKGS := ./...
-TESTFLAGS ?=
+.PHONY: all help fmt vet build tidy ci test test-v test-race cover cover-html setup \
+        security-% setup example-%
 
-include examples.mk
+all: build
 
-.PHONY: run-example
+##@ General
 
-# default log level for the example (can be overridden: `make run-example LOG_LEVEL=info`)
-LOG_LEVEL ?= DEBUG
+help: ## Display this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-# Executa todos os testes
-test:
-	go test $(TESTFLAGS) $(TESTPKGS)
+##@ Development
 
-# Executa os testes em modo verbose
-test-v:
-	go test -v $(TESTPKGS)
+fmt: ## Run gofmt
+	@$(MAKE) -f $(HACK_DIR)/build.mk fmt
 
-# Testes com detector de race e cobertura mínima
-test-race:
-	go test -race -cover -covermode=atomic $(TESTPKGS)
+vet: ## Run go vet
+	@$(MAKE) -f $(HACK_DIR)/build.mk vet
 
-## Gera arquivo de cobertura e mostra resumo
-cover:
-	go test -coverprofile=coverage.out $(TESTPKGS)
-	go tool cover -func=coverage.out
+build: ## Build all packages
+	@$(MAKE) -f $(HACK_DIR)/build.mk build
 
-## Gera relatório HTML de cobertura
-cover-html:
-	go test -coverprofile=coverage.out $(TESTPKGS)
-	go tool cover -html=coverage.out
+tidy: ## Run go mod tidy
+	@$(MAKE) -f $(HACK_DIR)/build.mk tidy
 
-## Formata o código (gofmt)
-fmt:
-	gofmt -w .
+ci: ## Run fmt + vet + test (CI pipeline)
+	@$(MAKE) -f $(HACK_DIR)/build.mk ci
 
-## Executa go vet
-vet:
-	go vet $(TESTPKGS)
+##@ Test
 
-## Compila os pacotes
-build:
-	go build $(TESTPKGS)
+test: ## Run all tests
+	@$(MAKE) -f $(HACK_DIR)/test.mk test
 
-## Ajusta dependências do módulo
-tidy:
-	go mod tidy
+test-v: ## Run tests in verbose mode
+	@$(MAKE) -f $(HACK_DIR)/test.mk test-v
 
-## Target para CI: formata, analisa e testa
-ci: fmt vet test
+test-race: ## Run tests with race detector
+	@$(MAKE) -f $(HACK_DIR)/test.mk test-race
 
-## Setup: instala lefthook e configura git hooks
-# Use ASDF=true para instalar via asdf ao invés de go install
-ASDF ?= false
+cover: ## Generate coverage report (func summary)
+	@$(MAKE) -f $(HACK_DIR)/test.mk cover
 
-setup:
-ifeq ($(ASDF),true)
-	@asdf install
-	@asdf exec lefthook install
-else
-	@go install github.com/evilmartians/lefthook@latest
-	@lefthook install
-endif
-	@echo "Git hooks configured"
+cover-html: ## Generate coverage report (HTML)
+	@$(MAKE) -f $(HACK_DIR)/test.mk cover-html
 
-# Run the example in ./examples/logger (default: DEBUG level)
-# You can override the level by calling e.g. `make run-example LOG_LEVEL=info`
-run-example:
-	cd examples/logger && LOG_LEVEL=$(LOG_LEVEL) go run .
+##@ Security
 
+security: ## Run all security checks (gosec + gitleaks + govulncheck)
+	@$(MAKE) -f $(HACK_DIR)/security.mk run
 
-# security
-.PHONY: security
-security: gosec gitleaks govulncheck
-	@echo "Security checks completed"
+security-%: ## Run a specific security check (e.g. make security-gosec)
+	@$(MAKE) -f $(HACK_DIR)/security.mk $(patsubst security-%,%,$@)
 
-.PHONY: gosec
-gosec:
-	@echo "Running gosec..."
-	@mkdir -p reports
-	@go run github.com/securego/gosec/v2/cmd/gosec@latest -fmt=json -out=reports/gosec-report.json -exclude-dirs=examples ./... 2>&1 || (echo "Security issues were detected!") 
+##@ Setup
 
-.PHONY: gitleaks
-gitleaks:
-	@echo "Running gitleaks..."
-	@docker run -v ${PWD}:/path -v ${PWD}/reports:/reports zricethezav/gitleaks:latest detect \
-		--source="/path" \
-		--report-path="/reports/gitleaks-report.json" \
-		-v || (echo "Secrets were detected!")
-	
-.PHONY: govulncheck
-govulncheck:
-	@echo "Running govulncheck..."
-	@mkdir -p reports
-	@go run golang.org/x/vuln/cmd/govulncheck@latest ./... > reports/govulncheck-report.txt 2>&1 || (echo "Vulnerabilities were detected!")
+setup: ## Install lefthook and configure git hooks
+	@$(MAKE) -f $(HACK_DIR)/setup.mk run
+
+setup-%: ## Run a specific setup step (e.g. make setup-install-lefthook)
+	@$(MAKE) -f $(HACK_DIR)/setup.mk $(patsubst setup-%,%,$@)
+
+##@ Examples
+
+example-run: ## Run an example: make example-run example=<name>
+	@$(MAKE) -f $(HACK_DIR)/examples.mk run example=$(example)

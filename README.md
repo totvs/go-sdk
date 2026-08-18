@@ -1,6 +1,6 @@
 # go-sdk
 
-SDK Go com utilitários reutilizáveis para logging, tracing e integrações.
+SDK Go com utilitários reutilizáveis para autenticação, logging, tracing e integrações.
 
 Resumo
 - Fachada de logging pública em `log/` para desacoplar consumidores de implementações
@@ -8,6 +8,7 @@ Resumo
 - Implementações concretas ficam em `log/internal` (não exportadas).
 - Helpers de trace e propagation em `trace/`.
 - Helpers Kubernetes em `kubernetes/status/` (status padronizado baseado em KStatus) e `utils/kubernetes/transmitter/` (transmitter genérico de CRDs).
+- Cliente OAuth 2.0 confidencial em `auth/oauth2/` para troca e renovação segura de tokens.
 - Exemplos em `examples/` e alvos úteis no `Makefile`.
 
 ## Setup inicial
@@ -26,6 +27,7 @@ Resumo
 
 ## Estrutura principal
 
+- `auth/` — validação de bearer JWT e cliente de token OAuth 2.0 reutilizável em `auth/oauth2/`.
 - `log/` — pacote de fachada: `facade.go`, testes e documentação (`log/README.md`).
   - `log/adapter/` — adaptadores públicos que retornam `LoggerFacade` (ex.: `NewLog`, `NewDefaultLog`).
   - `log/internal/` — implementações concretas (por exemplo `internal/backend/zerolog.go`).

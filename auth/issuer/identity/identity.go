@@ -16,11 +16,11 @@ type identityClaims struct {
 	issuer.ClaimsBase
 }
 
-func NewIdentity(jwks_url string) issuer.Issuer {
+func NewIdentity(jwksURL string) issuer.Issuer {
 	var i identityIssuer
-	i.Ctx = context.TODO()
+	i.Ctx = context.Background()
 	i.IssuerRegex = regexp.MustCompile(`(?m)^\*\.fluig\.io$`)
-	i.Jwks_url = jwks_url
+	i.Jwks_url = jwksURL
 	i.Verifier = oidc.NewVerifier("",
 		oidc.NewRemoteKeySet(i.Ctx, i.Jwks_url),
 		&oidc.Config{

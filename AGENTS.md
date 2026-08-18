@@ -7,6 +7,8 @@ Scope
 - Applies to the repository root and the entire directory tree below it.
 
 Relevant structure
+- `auth/` — reusable authentication primitives.
+  - `auth/oauth2/` — transport-agnostic confidential OAuth client for authorization-code and refresh grants.
 - `log/` — the `logger` package containing logging utilities.
   - `log/impl/zerolog_impl.go` — concrete wrapper around `zerolog` (implementation of the facade).
   - `log/facade.go` — public facade (`LoggerFacade`) and adapter for the internal logger implementation.
@@ -39,6 +41,11 @@ Development guidelines
   - Use `bytes.Buffer` and `httptest` to capture log output and HTTP behaviour; avoid external dependencies.
   - If a test mutates the global logger via `SetGlobal`, restore the previous value with `defer SetGlobal(prev)`.
   - Use `make test` for quick runs and `make test-v` for verbose output.
+
+- Authentication API
+  - Keep OAuth protocol mechanics in `auth/oauth2`; consumers own HTTP routes, cookies, sessions, and application redirects.
+  - Never include client secrets, authorization codes, or token values in returned errors.
+  - Bound upstream response bodies and inject `http.Client` when consumers need custom observability transports.
 
 - Formatting and static analysis
   - Run `gofmt -w .` and `go vet ./...` before submitting changes.

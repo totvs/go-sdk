@@ -55,6 +55,13 @@ var _ = Describe("Test issuer", func() {
 			Expect(claims.ClaimAudience() == "aud").To(BeTrue())
 			Expect(claims.ClaimIssuer() == "issuer").To(BeTrue())
 		})
+		It("should preserve string assignment compatibility", func() {
+			audience := "smartharness"
+			claims := issuer.ClaimsBase{Audience: audience}
+
+			Expect(claims.Audience).To(Equal(audience))
+			Expect(claims.ClaimAudience()).To(Equal(audience))
+		})
 	})
 	Context("Invalid claims", func() {
 		identityClaims := map[string]interface{}{

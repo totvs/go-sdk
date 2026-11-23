@@ -1,6 +1,6 @@
 module github.com/totvs/go-sdk
 
-go 1.26.2
+go 1.27.4
 
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0

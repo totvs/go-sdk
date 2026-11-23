@@ -2,7 +2,9 @@ package log
 
 import (
 	"context"
+	"net/http"
 	"sync/atomic"
+	"time"
 )
 
 // LogEvent é a interface fluente para construir logs encadeados (similar a zerolog.Event).
@@ -30,6 +32,15 @@ type LoggerFacade interface {
 	WithField(k string, v interface{}) LoggerFacade
 	WithFields(fields map[string]interface{}) LoggerFacade
 	WithTraceFromContext(ctx context.Context) LoggerFacade
+	// WithHTTPRequest returns a logger enriched with HTTP request/response
+	// fields (http.client.ip, http.client.user-agent, http.request.method,
+	// http.request.path, http.response.status.code, http.response.body.size,
+	// http.response.status.code, http.response.body.size). Status and body
+	// size are read from the native *http.Response. See HTTPFields.
+	WithHTTPRequest(r *http.Request, resp *http.Response) LoggerFacade
+	// WithHTTPLatency returns a logger enriched with the
+	// http.response.latency field, logged in milliseconds.
+	WithHTTPLatency(latency time.Duration) LoggerFacade
 
 	// Event builders for fluent logs. These return an Event that can be
 	// chained (Str/Float64/Interface/Err/Msg...). Use these when you prefer
@@ -107,6 +118,10 @@ func (nopLogger) Debug() LogEvent                                       { return
 func (nopLogger) Info() LogEvent                                        { return nopEvent{} }
 func (nopLogger) Warn() LogEvent                                        { return nopEvent{} }
 func (nopLogger) Error(err error) LogEvent                              { return nopEvent{} }
+func (nopLogger) WithHTTPRequest(r *http.Request, resp *http.Response) LoggerFacade {
+	return nopLogger{}
+}
+func (nopLogger) WithHTTPLatency(latency time.Duration) LoggerFacade { return nopLogger{} }
 
 // GetGlobal returns the package-level global logger. If none is configured
 // yet, it stores and returns a no-op logger to avoid nil panics.

@@ -61,6 +61,25 @@ func main() {
 - `WithField(key, value)` — adiciona um campo ao logger (encadeável).
 - `WithFields(map[string]interface{})` — adiciona múltiplos campos.
 - Middlewares HTTP fornecem geração/propagação de `trace_id` e injeção do logger no contexto.
+- `LoggerFacade.WithHTTPRequest(r *http.Request, resp *http.Response)` — retorna logger com campos HTTP
+  (`http.client.ip`, `http.client.user-agent`, `http.request.method`,
+  `http.request.path`, `http.response.status.code`, `http.response.body.size`).
+  Status e tamanho do body vêm de `resp.StatusCode` e `resp.ContentLength`;
+  `resp` nil omite esses campos.
+- `LoggerFacade.WithHTTPLatency(latency time.Duration)` — opcional; adiciona
+  `http.response.latency` em milissegundos.
+- `HTTPFields(r, resp)` retorna os campos de `WithHTTPRequest`
+  como `map[string]interface{}`; `ClientIP(r)` resolve o IP do cliente
+  (`X-Forwarded-For` → `X-Real-Ip` → `RemoteAddr`).
+
+```go
+start := time.Now()
+// ... handler executa ...
+resp := &http.Response{StatusCode: status, ContentLength: size}
+lg.WithHTTPRequest(r, resp).
+    WithHTTPLatency(time.Since(start)). // opcional
+    Info().Msg("http request completed")
+```
 
 ## Middleware HTTP
 

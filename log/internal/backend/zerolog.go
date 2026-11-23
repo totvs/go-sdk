@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"io"
+	"net/http"
 	"os"
 	"time"
 
@@ -98,6 +99,16 @@ func (l implLogger) WithFields(fields map[string]interface{}) lg.LoggerFacade {
 		}
 	}
 	return implLogger{l: c.Logger()}
+}
+
+// WithHTTPRequest adds the standard HTTP request/response fields to the logger.
+func (l implLogger) WithHTTPRequest(r *http.Request, resp *http.Response) lg.LoggerFacade {
+	return l.WithFields(lg.HTTPFields(r, resp))
+}
+
+// WithHTTPLatency adds the http.response.latency field (milliseconds).
+func (l implLogger) WithHTTPLatency(latency time.Duration) lg.LoggerFacade {
+	return implLogger{l: l.l.With().Int64(lg.HTTPResponseLatencyField, latency.Milliseconds()).Logger()}
 }
 
 func (l implLogger) WithTraceFromContext(ctx context.Context) lg.LoggerFacade {
